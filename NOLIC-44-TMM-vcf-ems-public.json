@@ -1,0 +1,248 @@
+{
+  "skipEsxThumbprintValidation": true,
+  "managementPoolName": "mgmt-networkpool",
+  "sddcManagerSpec": {
+    "secondUserCredentials": {
+      "username": "vcf",
+      "password": "VMware123!"
+    },
+    "ipAddress": "10.0.0.4",
+    "netmask": "255.255.255.0",
+    "hostname": "sddc-manager",
+    "rootUserCredentials": {
+      "username": "root",
+      "password": "VMware123!"
+    },
+    "localUserPassword": "VMware123!VMware123!",
+    "vcenterId": "vcenter-1"
+  },
+  "sddcId": "mgmt-domain",
+  "esxLicense": "<INSERT LIC>",
+  "taskName": "workflowconfig/workflowspec-ems.json",
+  "ceipEnabled": false,
+  "fipsEnabled": false,
+  "ntpServers": ["10.0.0.221"],
+  "dnsSpec": {
+    "subdomain": "vcf.sddc.lab",
+    "domain": "vcf.sddc.lab",
+    "nameserver": "10.0.0.221"
+  },
+  "networkSpecs": [
+    {
+      "networkType": "MANAGEMENT",
+      "subnet": "10.0.0.0/24",
+      "gateway": "10.0.0.221",
+      "vlanId": "10",
+      "mtu": "1500",
+      "portGroupKey": "sddc-vds01-mgmt",
+      "standbyUplinks":[],
+      "activeUplinks":[
+        "uplink1",
+        "uplink2"
+      ]
+    },
+    {
+      "networkType": "VMOTION",
+      "subnet": "10.0.4.0/24",
+      "gateway": "10.0.4.253",
+      "vlanId": "10",
+      "mtu": "8940",
+      "portGroupKey": "sddc-vds01-vmotion",
+      "association": "mgmt-datacenter-01",
+      "includeIpAddressRanges": [{"endIpAddress": "10.0.4.111", "startIpAddress": "10.0.4.101"}],
+      "standbyUplinks":[],
+      "activeUplinks":[
+        "uplink1",
+        "uplink2"
+      ]
+    },
+    {
+      "networkType": "VSAN",
+      "subnet": "10.0.8.0/24",
+      "gateway": "10.0.8.253",
+      "vlanId": "10",
+      "mtu": "8940",
+      "portGroupKey": "sddc-vds01-vsan",
+      "includeIpAddressRanges": [{"endIpAddress": "10.0.8.111", "startIpAddress": "10.0.8.101"}],
+      "standbyUplinks":[],
+      "activeUplinks":[
+        "uplink1",
+        "uplink2"
+      ]
+    }
+  ],
+  "nsxtSpec":
+  {
+    "nsxtManagerSize": "small",
+    "nsxtManagers": [
+      {
+          "hostname": "nsx-mgmt-1",
+          "ip": "10.0.0.21"
+      }
+    ],
+    "rootNsxtManagerPassword": "VMware123!VMware123!",
+    "nsxtAdminPassword": "VMware123!VMware123!",
+    "nsxtAuditPassword": "VMware123!VMware123!",
+    "rootLoginEnabledForNsxtManager": "true",
+    "sshEnabledForNsxtManager": "true",
+    "overLayTransportZone": {
+        "zoneName": "mgmt-domain-tz-overlay01",
+        "networkName": "netName-overlay"
+    },
+    "vlanTransportZone": {
+        "zoneName": "mgmt-domain-tz-vlan01",
+        "networkName": "netName-vlan"
+    },
+    "vip": "10.0.0.20",
+    "vipFqdn": "nsx-mgmt",
+    "nsxtLicense": "<INSERT LIC>",
+    "transportVlanId": 10
+  },
+  "vsanSpec": {
+      "vsanName": "vsan-1",
+      "licenseFile": "<INSERT LIC>",
+      "vsanDedup": "false",
+      "datastoreName": "vcf-vsan"
+  },
+  "dvSwitchVersion": "7.0.0",
+  "dvsSpecs": [
+    {
+      "dvsName": "mgmt-vds01",
+      "vcenterId":"vcenter-1",
+      "vmnics": [
+        "vmnic0",
+        "vmnic1"
+      ],
+      "mtu": 8940,
+      "networks":[
+        "MANAGEMENT",
+        "VMOTION",
+        "VSAN"
+      ],
+      "niocSpecs":[
+        {
+          "trafficType":"VSAN",
+          "value":"HIGH"
+        },
+        {
+          "trafficType":"VMOTION",
+          "value":"LOW"
+        },
+        {
+          "trafficType":"VDP",
+          "value":"LOW"
+        },
+        {
+          "trafficType":"VIRTUALMACHINE",
+          "value":"HIGH"
+        },
+        {
+          "trafficType":"MANAGEMENT",
+          "value":"NORMAL"
+        },
+        {
+          "trafficType":"NFS",
+          "value":"LOW"
+        },
+        {
+          "trafficType":"HBR",
+          "value":"LOW"
+        },
+        {
+          "trafficType":"FAULTTOLERANCE",
+          "value":"LOW"
+        },
+        {
+          "trafficType":"ISCSI",
+          "value":"LOW"
+        }
+      ],
+      "isUsedByNsxt": true
+    }
+  ],
+  "clusterSpec":
+  {
+    "clusterName": "mgmt-cluster-01",
+    "vcenterName": "vcenter-1",
+    "clusterEvcMode": "",
+    "vmFolders": {
+      "MANAGEMENT": "mgmt-domain-fd-mgmt",
+      "NETWORKING": "mgmt-domain-fd-nsx",
+      "EDGENODES": "mgmt-domain-fd-edge"
+    }
+  },
+  "pscSpecs": [
+    {
+      "pscId": "psc-1",
+      "vcenterId": "vcenter-1",
+      "adminUserSsoPassword": "VMware123!",
+      "pscSsoSpec": {
+        "ssoDomain": "vsphere.local"
+      }
+    }
+  ],
+  "vcenterSpec": {
+      "vcenterIp": "10.0.0.12",
+      "vcenterHostname": "vcenter-mgmt",
+      "vcenterId": "vcenter-1",
+      "licenseFile": "<INSERT LIC>",
+      "vmSize": "tiny",
+      "storageSize": "",
+      "rootVcenterPassword": "VMware123!"
+  },
+  "hostSpecs": [
+    {
+      "association": "mgmt-datacenter-01",
+      "ipAddressPrivate": {
+        "ipAddress": "10.0.0.101"
+      },
+      "hostname": "esxi-1",
+      "credentials": {
+        "username": "root",
+        "password": "VMware123!"
+      },
+      "vSwitch": "vSwitch0",
+      "serverId": "host-1"
+    },
+    {
+      "association": "mgmt-datacenter-01",
+      "ipAddressPrivate": {
+        "ipAddress": "10.0.0.102"
+      },
+      "hostname": "esxi-2",
+      "credentials": {
+        "username": "root",
+        "password": "VMware123!"
+      },
+      "vSwitch": "vSwitch0",
+      "serverId": "host-2"
+    },
+    {
+      "association": "mgmt-datacenter-01",
+      "ipAddressPrivate": {
+        "ipAddress": "10.0.0.103"
+      },
+      "hostname": "esxi-3",
+      "credentials": {
+        "username": "root",
+        "password": "VMware123!"
+      },
+      "vSwitch": "vSwitch0",
+      "serverId": "host-3"
+    },
+    {
+      "association": "mgmt-datacenter-01",
+      "ipAddressPrivate": {
+        "ipAddress": "10.0.0.104"
+      },
+      "hostname": "esxi-4",
+      "credentials": {
+        "username": "root",
+        "password": "VMware123!"
+      },
+      "vSwitch": "vSwitch0",
+      "serverId": "host-4"
+    }
+  ],
+  "excludedComponents": ["AVN", "EBGP"]
+}

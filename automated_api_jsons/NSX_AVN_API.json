@@ -1,0 +1,20 @@
+{
+    "avns": [ {
+        "gateway": "10.50.0.1",
+        "mtu": 8940,
+        "name": "region-seg01",
+        "regionType": "REGION_A",
+        "routerName": "VLC-Tier-1",
+        "subnet": "10.50.0.0",
+        "subnetMask": "255.255.255.0"
+    }, {
+        "gateway": "10.60.0.1",
+        "mtu": 8940,
+        "name": "xregion-seg01",
+        "regionType": "X_REGION",
+        "routerName": "VLC-Tier-1",
+        "subnet": "10.60.0.0",
+        "subnetMask": "255.255.255.0"
+    }],
+    "edgeClusterId": ""
+}

@@ -1,0 +1,58 @@
+{
+    "image_storage": {
+        "storage_policy": ""
+    },
+    "ncp_cluster_network_spec": {
+        "nsx_edge_cluster": "",
+        "cluster_distributed_switch": "",
+        "egress_cidrs": [
+            {
+                "address": "10.70.0.0",
+                "prefix": 24
+            }
+        ],
+        "pod_cidrs": [
+            {
+                "address": "10.244.0.0",
+                "prefix": 20
+            }
+        ],
+        "ingress_cidrs": [
+            {
+                "address": "10.80.0.0",
+                "prefix": 24
+            }
+        ]
+    },
+    "master_management_network": {
+        "mode": "STATICRANGE",
+        "address_range": {
+            "subnet_mask": "",
+            "starting_address": "",
+            "gateway": "",
+            "address_count": 5
+        },
+        "network": ""
+    },
+    "master_NTP_servers": [
+        ""
+    ],
+    "ephemeral_storage_policy": "",
+    "service_cidr": {
+        "address": "10.96.0.0",
+        "prefix": 23
+    },
+    "size_hint": "SMALL",
+    "worker_DNS": [
+        ""
+    ],
+    "master_DNS": [
+        ""
+    ],
+    "network_provider": "NSXT_CONTAINER_PLUGIN",
+    "master_storage_policy": "",
+    "master_DNS_search_domains": [
+        ""
+    ],
+    "default_kubernetes_service_content_library": ""
+}

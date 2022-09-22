@@ -1,0 +1,94 @@
+{
+  "computeSpec": {
+    "clusterSpecs": [
+      {
+        "name": "mgmt-cluster-02",
+        "hostSpecs": [
+          {
+            "id": "",
+            "licenseKey": "",
+            "hostNetworkSpec": {
+              "vmNics": [
+                {
+                  "id": "vmnic0",
+                  "vdsName": "mgmt-vds02"
+                },
+                {
+                  "id": "vmnic1",
+                  "vdsName": "mgmt-vds02"
+                }
+              ]
+            }
+          },
+          {
+            "id": "",
+            "licenseKey": "",
+            "hostNetworkSpec": {
+              "vmNics": [
+                {
+                  "id": "vmnic0",
+                  "vdsName": "mgmt-vds02"
+                },
+                {
+                  "id": "vmnic1",
+                  "vdsName": "mgmt-vds02"
+                }
+              ]
+            }
+          },
+          {
+            "id": "",
+            "licenseKey": "",
+            "hostNetworkSpec": {
+              "vmNics": [
+                {
+                  "id": "vmnic0",
+                  "vdsName": "mgmt-vds02"
+                },
+                {
+                  "id": "vmnic1",
+                  "vdsName": "mgmt-vds02"
+                }
+              ]
+            }
+          }
+        ],
+        "datastoreSpec": {
+          "vsanDatastoreSpec": {
+            "failuresToTolerate": 1,
+            "licenseKey": "",
+            "datastoreName": "vcf-vsan02"
+          }
+        },
+        "networkSpec": {
+          "vdsSpecs": [
+            {
+              "name": "mgmt-vds02",
+              "isUsedByNsxt": true,
+              "portGroupSpecs": [
+                {
+                  "name": "sddc-vds02-mgmt",
+                  "transportType": "MANAGEMENT"
+                },
+                {
+                  "name": "sddc-vds02-vmotion",
+                  "transportType": "VMOTION"
+                },
+                {
+                  "name": "sddc-vds02-vsan",
+                  "transportType": "VSAN"
+                }
+              ]
+            }
+          ],
+          "nsxClusterSpec": {
+            "nsxTClusterSpec": {
+              "geneveVlanId": 0
+            }
+          }
+        }
+      }
+    ]
+  },
+  "domainId": ""
+}

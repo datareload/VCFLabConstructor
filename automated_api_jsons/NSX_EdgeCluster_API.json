@@ -1,0 +1,62 @@
+{
+    "asn": 65003,
+    "edgeAdminPassword": "VMware123!VMware123!",
+    "edgeAuditPassword": "VMware123!VMware123!",
+    "edgeRootPassword": "VMware123!VMware123!",
+    "mtu": 8940,
+    "tier0Name": "VLC-Tier-0",
+    "tier0RoutingType": "EBGP",
+    "tier0ServicesHighAvailability": "ACTIVE_ACTIVE",
+    "tier1Name": "VLC-Tier-1",
+    "edgeClusterName": "EC-01",
+    "edgeClusterProfileType": "DEFAULT",
+    "edgeClusterType": "NSX-T",
+    "edgeFormFactor": "LARGE",
+    "edgeNodeSpecs": [ {
+        "clusterId": "",
+        "edgeNodeName": "edge1-mgmt.vcf.sddc.lab",
+        "edgeTep1IP": "172.27.13.2/24",
+        "edgeTep2IP": "172.27.13.3/24",
+        "edgeTepGateway": "172.27.13.1",
+        "edgeTepVlan": 13,
+        "interRackCluster": false,
+        "managementGateway": "10.0.0.221",
+        "managementIP": "10.0.0.23/24",
+        "uplinkNetwork": [ {
+            "asnPeer": 65001,
+            "bgpPeerPassword": "VMware123!",
+            "peerIP": "172.27.11.1/24",
+            "uplinkInterfaceIP": "172.27.11.2/24",
+            "uplinkVlan": 11
+        },{
+            "asnPeer": 65001,
+            "bgpPeerPassword": "VMware123!",
+            "peerIP": "172.27.12.1/24",
+            "uplinkInterfaceIP": "172.27.12.2/24",
+            "uplinkVlan": 12
+        } ]
+    },{
+        "clusterId": "",
+        "edgeNodeName": "edge2-mgmt.vcf.sddc.lab",
+        "edgeTep1IP": "172.27.13.4/24",
+        "edgeTep2IP": "172.27.13.5/24",
+        "edgeTepGateway": "172.27.13.1",
+        "edgeTepVlan": 13,
+        "interRackCluster": false,
+        "managementGateway": "10.0.0.221",
+        "managementIP": "10.0.0.24/24",
+        "uplinkNetwork": [ {
+            "asnPeer": 65001,
+            "bgpPeerPassword": "VMware123!",
+            "peerIP": "172.27.11.1/24",
+            "uplinkInterfaceIP": "172.27.11.3/24",
+            "uplinkVlan": 11
+        },{
+            "asnPeer": 65001,
+            "bgpPeerPassword": "VMware123!",
+            "peerIP": "172.27.12.1/24",
+            "uplinkInterfaceIP": "172.27.12.3/24",
+            "uplinkVlan": 12
+        } ]
+    } ]
+}
