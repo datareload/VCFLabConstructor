@@ -1034,6 +1034,7 @@ Function cbConfigurator
     $replaceNet +="echo `n"
     $replaceNet +="echo subnet $DhcpIPSubnet netmask $DhcpSubnetMask {`n"
     $replaceNet +="echo   range $DhcpRangeStart $DhcpRangeEnd\;`n"
+    $replaceNet +="echo   option domain-name-servers $CloudBuilderIP\;`n"
     $replaceNet +="echo   option routers $DhcpGateway\;`n"
     $replaceNet +="echo }`n"
     $replaceNet +=")>/etc/dhcp/dhcpd.conf`n"
@@ -1108,6 +1109,7 @@ Function cbConfigurator
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($tzEgress) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($tzIngress) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($nsxSuperNet) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
+    $replaceNet +="iptables -t nat -A POSTROUTING -s $($DhcpIPSubnet/$DhcpIPSubnetCIDR) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT`n"
     $replaceNet +="iptables-save > /etc/systemd/scripts/ip4save`n"
     $replaceNet +="sed -i '/# End/q' /etc/systemd/scripts/iptables`n"
@@ -1173,7 +1175,7 @@ Function cbConfigurator
     $replaceDNS +="echo upstream_servers[\`"$revxRegionDNS\`"] = \`"127.0.0.1\`"`n"
     $replaceDNS +="echo upstream_servers[\`"vcf.holo.lab.\`"] = \`"10.0.0.201\`"`n"
     $replaceDNS +="echo upstream_servers[\`"$vcfDomainName.\`"] = \`"127.0.0.1\`"`n"
-    $replaceDNS +="echo recursive_acl = \`"$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
+    $replaceDNS +="echo recursive_acl = \`"$($DhcpIPSubnet/$DhcpIPSubnetCIDR),$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
     $replaceDNS +="echo filter_rfc1918 = 0`n"
     $replaceDNS +=")> /etc/dwood3rc`n"
     $replaceDNS +="(`n"
@@ -2026,7 +2028,7 @@ if ($isCLI) {
             "chkEC" {$tip = "When this box is checked, VLC will attempt to deploy an Edge Cluster, `naccording to the NSX_EdgeCluster_API.json"}
             "txtNSXSuper" {$tip = "A route will be added to Cloudbuilder for this supernet pointed `nat the NSX Edge Cluster"}
             "chkAVNs" {$tip = "When this box is checked, VLC will attempt to deploy AVNs on the Edge Cluster, `naccording to the NSX_AVN_API.json"}
-            "chkSb" {$tip = "When this box is checked, `nafter deploying the nested hosts and CloudBuilder, VLC will continue by submitting the JSON and starting bringup"}
+            "chkSb" {$tip = "When this box is checked, after deploying the nested hosts and CloudBuilder, `nVLC will continue by submitting the JSON and starting bringup"}
             "chkInternalSvcs" {$tip = "When this box is checked VLC will import Cloud Builder and `nconfigure it as a DNS, NTP and DHCP server with the information from the VCF-EMS JSON file"}
             "chkWldMgmt" {$tip = "When this box is checked, VLC will attempt to enable Workload Management on the, `nmanagement domain, according to the WORKLOADMGMT_API.json"}
             #Infrastructure Settings
@@ -3090,7 +3092,7 @@ $createHostCode = {
         $exception = $_.Exception
         Write-Host "Could not connect to vCenter" -ForegroundColor Red
         $msg = "Could not connect to vCenter"
-        logger "$msg $status $error[0]"
+        logger "$msg $status $error[0]" -logonly
       }
 
 	#Connect-viserver $esxhost -user $username -password $password
