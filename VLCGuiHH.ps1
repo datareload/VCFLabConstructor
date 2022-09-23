@@ -3101,12 +3101,30 @@ $createHostCode = {
 
         write-host "Creation of VM initiated"  -foreground green
         logger "Creation of VM initiated" -logOnly
-    if ($hostCluster -eq "") {
-	    New-VM -Name $VM_Name -numcpu $numcpu -corespersocket $numcpu -MemoryGB $GBram -DiskGB $GBguestdisks[0] -DiskStorageFormat $Typeguestdisk -Datastore $ds -NetworkName $netName| Out-Null
-    } else {
-        $hostCluster = Get-Cluster $hostCluster
-        New-VM -Name $VM_Name -numcpu $numcpu -corespersocket $numcpu -MemoryGB $GBram -DiskGB $GBguestdisks[0] -DiskStorageFormat $Typeguestdisk -Datastore $ds -ResourcePool $hostCluster -NetworkName $netName -ErrorAction Stop | Out-Null
-    }
+        try {
+            write-host "Creation of VM initiated"  -foreground green
+            logger "Creation of VM initiated" -logOnly
+        if ($hostCluster -eq $null -Or $hostCluster -eq "") {
+            $vmHost = Get-VMHost
+               New-VM -Name $VM_Name -VMHost $vmHost -numcpu $numcpu -corespersocket $numcpu -MemoryGB $GBram -DiskGB $($GBguestdisks[0]) -DiskStorageFormat $Typeguestdisk -Datastore $ds -NetworkName $netName| Out-Null
+        } else {
+            $hostCluster = Get-Cluster $hostCluster
+            New-VM -Name $VM_Name -numcpu $numcpu -corespersocket $numcpu -MemoryGB $GBram -DiskGB $($GBguestdisks[0]) -DiskStorageFormat $Typeguestdisk -Datastore $ds -ResourcePool $hostCluster -NetworkName $netName -ErrorAction Stop | Out-Null
+        }
+    
+      }
+    
+      catch [Exception]{
+    
+        $exception = $_.Exception
+    
+        Write-Host "Could not create VM $VM_Name $exception" -ForegroundColor Red
+    
+        logger "Could not create VM $VM_Name $exception"
+    
+        exit
+    
+      }
 
 	write-host "Removing NIC"  -foreground green
 	logger "Removing NIC" -logOnly
@@ -3135,7 +3153,7 @@ $createHostCode = {
 	logger "Creating Disks" -logOnly
     # Add remainder of disks from JSON
 	for ($i=1; $i -le ($GBguestdisks.Count-1); $i++) {
-		New-HardDisk -CapacityGB $GBguestdisks[$i] -VM $VM_name -Datastore $ds -ThinProvisioned:$true -Confirm:$false | Out-Null
+		New-HardDisk -CapacityGB $($GBguestdisks[$i]) -VM $VM_name -Datastore $ds -ThinProvisioned:$true -Confirm:$false | Out-Null
         Get-VM $VM_Name | New-AdvancedSetting -Name "scsi0:$($i).virtualSSD" -Value TRUE -Confirm:$false
 	}
 	 
@@ -3281,15 +3299,16 @@ if ($global:bringUpOptions.hostSpecs) {
 
     $genvms = Get-Content -raw "$($global:scriptDir)\conf\default_mgmt_hosthw.json" | ConvertFrom-Json  
     
-    $templateHosts = $global:bringupOptions | Select -ExpandProperty hostSpecs
-    $networkInfo = $global:bringupOptions | Select -ExpandProperty networkSpecs
+    $templateHosts = $global:bringupOptions | Select-Object -ExpandProperty hostSpecs
+    $networkInfo = $global:bringupOptions | Select-Object -ExpandProperty networkSpecs
+    $hostGateway = $networkInfo | Where-Object {$_.networkType -match "Management"} | Select-Object -ExpandProperty Gateway
     
     $hostCnt = 0
     
     foreach ($templateHost in $templateHosts){
         $ipInfo = $templateHost.ipAddressPrivate
         
-            $hostsToBuild.Add($(New-Object PSObject -Property @{name="$($templateHost.hostname)";cpus="$($genvms.genVM[$($hostCnt)].cpus)";mem="$($genvms.genVM[$($hostCnt)].mem)";disks="$($genvms.genVM[$($hostCnt)].disks)";mgmtip="$($ipInfo.ipAddress)";subnetmask="$(CIDRtoSubnet $($networkInfo.subnet.Split("/")[1]))";ipgw="$($networkInfo.gateway)"}))
+            $hostsToBuild.Add($(New-Object PSObject -Property @{name="$($templateHost.hostname)";cpus="$($genvms.genVM[$($hostCnt)].cpus)";mem="$($genvms.genVM[$($hostCnt)].mem)";disks="$($genvms.genVM[$($hostCnt)].disks)";mgmtip="$($ipInfo.ipAddress)";subnetmask="$(CIDRtoSubnet $($networkInfo.subnet.Split("/")[1]))";ipgw="$($hostGateway)"}))
             $hostCnt++
     }                                                                                                                                      
 
