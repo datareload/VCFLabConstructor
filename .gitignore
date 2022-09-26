@@ -1,12 +1,2 @@
-Logs/VLC-Log-_20220522_010516.txt
-Logs/VLC-Log-_20221122_011117.txt
-Logs/AVNPayload-092322-054207.json
-Logs/CBImport-20224523_024502.txt
-Logs/EdgeClusterPayload-092322-043308.json
-Logs/HH-esxi-1-VLC-Log-_20220323_030352.txt
-Logs/HH-esxi-2-VLC-Log-_20220323_030352.txt
-Logs/HH-esxi-3-VLC-Log-_20220323_030353.txt
-Logs/HH-esxi-4-VLC-Log-_20220323_030356.txt
-Logs/VLC-Log-_20224323_024329.txt
-Logs/WLDMgmtPayload-092322-052356.json
-cb_esx_iso/VMware-VMvisor-Installer-7.0U3d-19482537.x86_64.iso
+Logs/
+cb_esx_iso/
