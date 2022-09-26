@@ -773,20 +773,30 @@ Function Get-VIInfo($vmHost, $vmUser, $vmPassword)
         }
     Disconnect-VIServer * -Confirm:$false -Force
 }       
-function extractvSphereISO ($vSphereISOPath) 
+function extractvSphereISO ($vSphereISOPath)
 {
-
+ 
     $mount = Mount-DiskImage -ImagePath "$vSphereISOPath" -PassThru
-
+ 
          if($mount) {
-         
-             $volume = Get-DiskImage -ImagePath $mount.ImagePath | Get-Volume
-             $source = $volume.DriveLetter + ":\*"
+        
+             $i=1
+             do {
+                $i++
+                $volume = Get-DiskImage -ImagePath $mount.ImagePath | Get-Volume
+                sleep 5
+                $source = $volume.DriveLetter
+             } until($i -gt 10 -Or $source)
+             if (! $source) {
+                 logger "ERROR: Could not get root mount for $vSphereISOPath"
+                 Dismount-DiskImage -ImagePath "$vSphereISOPath"
+                 exit
+             }
              $folder = mkdir $scriptDir\$tempDir\ISO -Force
-         
-             logger "Extracting '$vsphereISOPath' to '$folder'..."
-		 
-             $params = @{Path = $source; Destination = $folder; Recurse = $true; Force = $true;}
+        
+             logger "Extracting '$vsphereISOPath' mounted on '$source' to '$folder'..."
+            
+             $params = @{Path = $source + ":\*"; Destination = $folder; Recurse = $true; Force = $true;}
              cp @params
              $hide = Dismount-DiskImage -ImagePath "$vSphereISOPath"
              logger "Copy complete"
@@ -3924,7 +3934,7 @@ public static class Dummy {
         try {
             logger "Connecting to Nested vCenter, please wait.." -ForegroundColor green
             #Connect to vCenter
-            $conVcenter = Connect-viserver $managementVCIP -user $ssoCredential -password $ssoAdminPassword -ErrorAction Stop | Out-Null
+            $conVcenter = Connect-viserver $managementVCIP -user $ssoCredential -password $ssoAdminPassword -ErrorAction Stop
             logger "Connected to vCenter"    
             $i=6
         } catch [Exception]{
