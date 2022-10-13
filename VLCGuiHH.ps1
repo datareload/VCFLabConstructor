@@ -27,7 +27,7 @@ $logPathDir = New-Item -ItemType Directory -Path "$scriptDir\Logs" -Force
 $logfile = "$logPathDir\VLC-Log-_$(get-date -format `"yyyymmdd_hhmmss`").txt"
 $tempDir = "Temp-$(Get-Date -Format yyyyMMddHHMMss)"
 
-$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v4.4.1 - Process Window'
+$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v4.5 - Process Window'
 $welcomeText =@"
 Welcome to:
 __     ______ _____ _          _      ____                _                   _             
@@ -1128,6 +1128,7 @@ Function cbConfigurator
     $replaceNet +="sed -i '/# End/q' /etc/systemd/scripts/iptables`n"
     $replaceNet +="systemctl restart iptables`n"
     $replaceNet +="systemctl start nfs-server`n"
+    $replaceNet +="ethtool -K eth0 gso off gro off tso off`n"
     $replaceNet +="END`n"
 
     logger "Creating bash script to: Backup NIC, DHCP and NTP config files on CB"
@@ -2092,7 +2093,7 @@ if ($isCLI) {
 "@
 #region formControls
             $frmVCFLCMain = New-Object system.Windows.Forms.Form
-            $frmVCFLCMain.Text = "VCF Lab Constructor beta 4.4"
+            $frmVCFLCMain.Text = "VCF Lab Constructor beta 4.5"
             $frmVCFLCMain.TopMost = $true
             $frmVCFLCMain.Width = 850
             $frmVCFLCMain.Height = 450
@@ -3301,7 +3302,7 @@ if ($userOptions.nestedVMPrefix.Length -gt 0) {
     $userOptions.nestedVMPrefix = $userOptions.nestedVMPrefix + "-"
 } 
 
-logger "----------------------Inputs------------------4.4.1--"
+logger "----------------------Inputs------------------4.5--"
 foreach ($uO in $global:userOptions.GetEnumerator()){logger $($uO.Key + "`t`t" + $uO.Value)}
 logger "--------------------END-Inputs--------------------" 
 
