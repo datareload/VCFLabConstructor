@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VCF HH Version - Lab Constructor beta v4.4.1 9/23/2022
+# VCF HH Version - Lab Constructor beta v4.5 10/12/2022
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenika@vmware.com;gojose@vmware.com
 #
@@ -7,7 +7,8 @@
 ###################################################################
 param (
     [string]$iniConfigFile,
-    [bool]$isCLI=$false
+    [bool]$isCLI=$false,
+    [bool]$debugMode=$false
 )
 
 $WarningPreference="SilentlyContinue"
@@ -21,6 +22,7 @@ $global:bringupAfterBuild = $false
 $global:validationSuccess = $false
 $global:Ways = ""
 $global:psVer = ""
+$global:skipSSLFlag = ""
 $logPathDir = New-Item -ItemType Directory -Path "$scriptDir\Logs" -Force
 $logfile = "$logPathDir\VLC-Log-_$(get-date -format `"yyyymmdd_hhmmss`").txt"
 $tempDir = "Temp-$(Get-Date -Format yyyyMMddHHMMss)"
@@ -528,6 +530,7 @@ Function ClearFormFields
         $txtDNS.Text = ""
         $txtNTP.Text = ""
 	    $chkInternalSvcs.Checked = $false
+        $btnSubmit.Text = "Validate"
         $chkSb.Checked = $false
 #        $chkEC.Checked = $false
         #Target Environment Settings
@@ -2381,7 +2384,7 @@ if ($isCLI) {
             $chkEC.AutoSize = $true
             $chkEC.Width = 20
             $chkEC.Height = 20
-            $chkEC.location = new-object system.drawing.point(305,355)
+            $chkEC.location = new-object system.drawing.point(305,350)
             $chkEC.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
             $chkEC.Add_MouseHover($ShowTips)
             $chkEC.Add_CheckStateChanged({
@@ -2412,7 +2415,7 @@ if ($isCLI) {
             $lblchkEC.AutoSize = $true
             $lblchkEC.Width = 85
             $lblchkEC.Height = 20
-            $lblchkEC.location = new-object system.drawing.point(321,356)
+            $lblchkEC.location = new-object system.drawing.point(321,350)
             $lblchkEC.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
             $lblchkEC.Add_MouseHover($ShowTips)
             $frmVCFLCMain.controls.Add($lblchkEC)
@@ -2446,7 +2449,7 @@ if ($isCLI) {
             $chkWldMgmt.AutoSize = $true
             $chkWldMgmt.Width = 20
             $chkWldMgmt.Height = 20
-            $chkWldMgmt.location = new-object system.drawing.point(461,375)
+            $chkWldMgmt.location = new-object system.drawing.point(465,375)
             $chkWldMgmt.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
             $chkWldMgmt.Add_MouseHover($ShowTips)
             $frmVCFLCMain.controls.Add($chkWldMgmt)
@@ -2459,7 +2462,7 @@ if ($isCLI) {
             $lblchkWldMgmt.Width = 120
             $lblchkWldMgmt.Height = 20
             $lblchkWldMgmt.Enabled = $true
-            $lblchkWldMgmt.location = new-object system.drawing.point(476,375)
+            $lblchkWldMgmt.location = new-object system.drawing.point(480,375)
             $lblchkWldMgmt.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
             $lblchkWldMgmt.Add_MouseHover($ShowTips)
             $frmVCFLCMain.controls.Add($lblchkWldMgmt)
@@ -2471,7 +2474,7 @@ if ($isCLI) {
             $chkAVNs.Width = 20
             $chkAVNs.Height = 20
             $chkAVNs.Enabled = $true
-            $chkAVNs.location = new-object system.drawing.point(597,375)
+            $chkAVNs.location = new-object system.drawing.point(615,375)
             $chkAVNs.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
             $chkAVNs.Add_MouseHover($ShowTips)
             $frmVCFLCMain.controls.Add($chkAVNs)
@@ -2484,7 +2487,7 @@ if ($isCLI) {
             $lblchkAVNs.Width = 95
             $lblchkAVNs.Height = 20
             $lblchkAVNs.Enabled = $true
-            $lblchkAVNs.location = new-object system.drawing.point(612,375)
+            $lblchkAVNs.location = new-object system.drawing.point(630,375)
             $lblchkAVNs.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
             $lblchkAVNs.Add_MouseHover($ShowTips)
             $frmVCFLCMain.controls.Add($lblchkAVNs)
@@ -2882,6 +2885,10 @@ if ($isCLI) {
             $btnClear.Height = 40
             $btnClear.Add_Click({
                 ClearFormFields
+                UnLockFormFields
+                $btnSubmit.Text = "Validate"
+                $btnSubmit.ForeColor=[System.Drawing.Color]::"Black"
+                $btnSubmit.BackColor=[System.Drawing.Color]::"Yellow"
                     })
             $btnClear.location = New-Object System.Drawing.Point (75,370)
             $frmVCFLCMain.Controls.Add($btnClear)
@@ -3750,7 +3757,6 @@ If ([bool]$userOptions.bringupAfterBuild) {
 
     $x=0
     logger "Waiting for bringup to start"
-    $global:skipSSLFlag = ""
     if ($global:psVer -lt 7) {
 
     #Ignore Self Signed Cert code for Powershell 5/6 - Thanks x0n - https://stackoverflow.com/users/6920/x0n
@@ -3783,7 +3789,7 @@ public static class Dummy {
     $success=$false
     do {
         try {
-            $bringupAbout = Invoke-RestMethod https://$netCBIPaddress/bringup/about
+            $bringupAbout = Invoke-RestMethod https://$netCBIPaddress/bringup/about @global:skipSSLFlag
             $success=$true
             write-host "Bringup online"
         } catch { 
@@ -3994,8 +4000,6 @@ public static class Dummy {
 }
 #endregion Bringup
 
-Disconnect-VIServer * -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
-
 #region Edge and AVN Deployment
 
 
@@ -4021,6 +4025,19 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
         } else {
             sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId $($edgeClusterCreateTask.id)
         }
+        logger "Removing memory and CPU reservations from Edge VMs"
+        $edgeNodeNames = $($edgeClusterPayload.edgeNodeSpecs | Select -ExpandProperty edgeNodeName)
+        try {
+            connect-viserver -server $managementVCIP -user $ssoCredential -password $ssoAdminPassword
+        } catch {
+            logger "Unable to connect to vCenter in Workload Management deploy, skipping enablement"
+            $failOut = $true
+            break
+        }
+        foreach($edgeNodeName in $edgeNodeNames) {
+            Get-VM -Name $($edgeNodeName.Split(".")[0]) | Get-VMResourceConfiguration | Set-VMResourceConfiguration -MemReservationGB 0 -CpuSharesLevel "Normal"
+        }
+        Disconnect-VIServer * -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
     }
     if ([bool]$global:userOptions.deployWldMgmt) {
         $failOut = $false
@@ -4249,7 +4266,9 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
 
 $totalTime.Stop()
 logger "Cleaning up Temp Directory"
-Remove-Item "$scriptDir\$tempDir" -Recurse -Force -Confirm:$False -ErrorAction:Stop
+if (!$debugMode) {
+    Remove-Item "$scriptDir\$tempDir" -Recurse -Force -Confirm:$False -ErrorAction:Stop
+}
 logger "Total RunTime: $($totalTime.Elapsed)"
 if ($global:Ways -notmatch "expansion") {
     logger "Please open a browser and navigate to https://$($global:bringUpOptions.sddcManagerSpec.hostname).$($global:userOptions.vcfDomainName)"
