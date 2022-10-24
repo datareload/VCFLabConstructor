@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VCF HH Version - Lab Constructor beta v4.5 10/12/2022
+# VCF HH Version - Lab Constructor beta v4.5 10/21/2022
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenika@vmware.com;gojose@vmware.com
 #
@@ -50,7 +50,7 @@ Write-Host "Major Powershell version is: $global:psVer"
 # Import PowerCLI Module
 Write-host "Checking PowerCLI 12.1 or greater installation."
 $modCnt = 1
-$moduleInstalled = Get-Module -ListAvailable | Where-Object {$_.Name -like "VMware.VimAutomation.Core"} | Select Version | Sort-Object -Property Version -Descending
+$moduleInstalled = Get-Module -ListAvailable | Where-Object {$_.Name -like "VMware.VimAutomation.Core"} | Select-Object Version | Sort-Object -Property Version -Descending
     
 foreach ($mod in $moduleInstalled) {
     write-host "Found PowerCLI version $($mod.Version.ToString()) installed."
@@ -103,7 +103,7 @@ foreach ($mod in $moduleInstalled) {
         )
     }
     
-    $result = Get-ItemProperty $regpath | Select DisplayName, DisplayVersion | Where {$_.DisplayName -like "VMware OVF Tool"}
+    $result = Get-ItemProperty $regpath | Select-Object DisplayName, DisplayVersion | Where-Object {$_.DisplayName -like "VMware OVF Tool"}
 
     if ($result -eq $null) {
         write-host "Please Install VMware OVF Tool 4.3 or greater from https://www.vmware.com/support/developer/ovf/ and re-run the script." -ForegroundColor Yellow
@@ -239,6 +239,8 @@ Function SetFormValues ($formContent)
         $txtNestedJSON.Text = $vcfSettings.addHostsJson
         $txtNTP.Text = $vcfSettings.NTPIP
         $txtDNS.Text = $vcfSettings.DNSIP
+        $txtlabGateway.Text = $vcfSettings.labGateway
+        $txtLabDNS.Text = $vcfSettings.labDNS
         $txtvSphereLoc.Text = $vcfSettings.vSphereLoc
         $chkUseCBIso.Checked = $vcfSettings.UseCBIso
         $txtvmPrefix.Text = $vcfSettings.vmPrefix
@@ -273,6 +275,8 @@ Function GetFormValues ($formContent)
 	    $vcfSettings.add("CBISOLoc",$txtCBLoc.Text)
 	    $vcfSettings.add("CBIP",$txtCBIP.Text)
         $vcfSettings.add("vSphereLoc",$txtvSphereLoc.Text)
+        $vcfSettings.add("labGateway",$txtLabGateway.Text)
+        $vcfSettings.add("labDNS",$txtLabDNS.Text)
         $vcfSettings.add("useCBIso",$chkUseCBIso.Checked)
         $vcfSettings.add("vmPrefix",$txtvmPrefix.Text)
 	    $vcfSettings.add("addHostsJson",$txtNestedJSON.Text)
@@ -293,6 +297,25 @@ Function GetFormValues ($formContent)
         $formContent.add("viSettings",$viSettings)
 
         return $formContent
+}
+Function ResetLabels {
+    $lblHost.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblHostUser.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblPass.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblDomainName.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblCluster.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblNetName.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblDatastore.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblvSphereLoc.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblNestedJSON.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblMasterPass.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblMgmtNet.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblCBLoc.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblCBIP.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblMasterPass.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblBringupFile.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblDNS.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblNTP.BackColor = [System.Drawing.Color]::"DarkGray"
 }
 Function ValidateFormValues
 { param ($validEntries)
@@ -528,6 +551,8 @@ Function ClearFormFields
         $txtvmPrefix.Text = ""
         $txtCBIP.Text = ""
         $txtDNS.Text = ""
+        $txtLabGateway.Text = ""
+        $txtLabDNS.Text = ""
         $txtNTP.Text = ""
 	    $chkInternalSvcs.Checked = $false
         $btnSubmit.Text = "Validate"
@@ -538,6 +563,7 @@ Function ClearFormFields
         $txtHostIP.Text = ""
         $txtUsername.Text = ""
         $txtPassword.Text = ""
+        ResetLabels
 }
 Function LockFormFields 
 {
@@ -552,9 +578,11 @@ Function LockFormFields
         $txtvmPrefix.Enabled=$false
         $txtCBIP.Enabled=$false
         $txtDNS.Enabled=$false
+        $txtLabDNS.Enabled=$false
+        $txtLabGateway.Enabled=$false
         $txtNTP.Enabled=$false
 	    $chkInternalSvcs.Enabled=$false
-        $chkSb.Enabled=$false
+        $chkSb.Enabled=$true
 #        $chkEC.Enabled=$false
         $chkUseCBIso.Enabled=$false
         $txtHostIP.Enabled=$false
@@ -574,6 +602,8 @@ Function UnLockFormFields
 	    $txtNestedJSON.Enabled=$true
 	    $txtMasterPass.Enabled=$true
         $txtvSphereLoc.Enabled=$true
+        $txtLabDNS.Enabled=$true
+        $txtLabGateway.Enabled=$true
         $txtvmPrefix.Enabled=$true
         $txtCBIP.Enabled=$true
         $txtDNS.Enabled=$true
@@ -1336,7 +1366,7 @@ Function parseBringUpFile
     $txtNTP.text = $bringupObject.ntpServers
     $txtDNS.text = $bringupObject.dnsSpec.nameServer
     If ($global:Ways -ilike "internalsvcs") {
-        $txtCBIP.text = $bringupObject.ntpServers
+        $txtCBIP.text = $bringupObject.ntpServers[0]
     }
     $txtMasterPass.enabled = $false
     $txtNTP.enabled = $false
@@ -1391,16 +1421,24 @@ function setFormControls ($formway)
 
                         $lblMgmtNetVLAN.Enabled = $false
                         $txtMgmtNetVLAN.Enabled = $false
+                        $lblMgmtNetVLAN.Visible = $false
+                        $txtMgmtNetVLAN.Visible = $false
 
                         $lblMgmtNet.Enabled = $false
                         $txtMgmtNet.Enabled = $false
                         $lblMgmtNet.visible = $true
-                        $txtMgmtNet.visible = $true                       
+                        $txtMgmtNet.visible = $true   
+                        
 
-                        $lblLabGateway.Enabled = $true
-                        $txtLabGateway.Enabled = $true
+                        $lblLabGateway.Enabled = $false
+                        $txtLabGateway.Enabled = $false
                         $lblLabGateway.Visible = $false
                         $txtLabGateway.Visible = $false
+
+                        $lblLabDNS.Enabled = $false
+                        $txtLabDNS.Enabled = $false
+                        $lblLabDNS.Visible = $false
+                        $txtLabDNS.Visible = $false
 
                         $lblMgmtGateway.Enabled = $false
                         $txtMgmtGateway.Enabled = $false
@@ -1467,6 +1505,8 @@ function setFormControls ($formway)
 
                         $lblMgmtNetVLAN.Enabled = $false
                         $txtMgmtNetVLAN.Enabled = $false
+                        $lblMgmtNetVLAN.Visible = $true
+                        $txtMgmtNetVLAN.Visible = $true
 
                         $lblMgmtNet.Enabled = $false
                         $txtMgmtNet.Enabled = $false
@@ -1477,6 +1517,11 @@ function setFormControls ($formway)
                         $txtLabGateway.Enabled = $true
                         $lblLabGateway.Visible = $true
                         $txtLabGateway.Visible = $true
+
+                        $lblLabDNS.Enabled = $true
+                        $txtLabDNS.Enabled = $true
+                        $lblLabDNS.Visible = $true
+                        $txtLabDNS.Visible = $true
 
                         $lblMgmtGateway.Enabled = $false
                         $txtMgmtGateway.Enabled = $false
@@ -1545,6 +1590,8 @@ function setFormControls ($formway)
 
                         $lblMgmtNetVLAN.Enabled = $true
                         $txtMgmtNetVLAN.Enabled = $true
+                        $lblMgmtNetVLAN.Visible = $true
+                        $txtMgmtNetVLAN.Visible = $true
 
                         $lblMgmtNet.Enabled = $false
                         $txtMgmtNet.Enabled = $false
@@ -1554,7 +1601,12 @@ function setFormControls ($formway)
                         $lblLabGateway.Enabled = $false
                         $txtLabGateway.Enabled = $false
                         $lblLabGateway.Visible = $false
-                        $txtLabGateway.Visible = $false  
+                        $txtLabGateway.Visible = $false
+
+                        $lblLabDNS.Enabled = $false
+                        $txtLabDNS.Enabled = $false
+                        $lblLabDNS.Visible = $false
+                        $txtLabDNS.Visible = $false
    
                         $lblMgmtGateway.Enabled = $false
                         $txtMgmtGateway.Enabled = $false
@@ -1638,6 +1690,10 @@ function setFormControls ($formway)
                         $txtBringupFile.Enabled = $true
                         $lblbuildOps.visible = $true
                         $comboBoxBuildOps.visible = $true
+                        $lblMgmtNetVLAN.Enabled = $true
+                        $txtMgmtNetVLAN.Enabled = $true
+                        $lblMgmtNetVLAN.Visible = $true
+                        $txtMgmtNetVLAN.Visible = $true
                         #$lblConflictWarning.Visible = $true
 
         }
@@ -1976,14 +2032,7 @@ function vcGetObject ($vcServer,$vcToken, [ValidateSet("vm","cluster","namespace
 #endregion Functions
 
 #Clean Temp / Initialize Log and logging window
-<#try {
-If (Test-Path "$scriptDir\Temp"){Remove-Item "$scriptDir\Temp" -Recurse -Force -Confirm:$False -ErrorAction:Stop}
-} catch {
-    $errMsg = ($_.Exception.Message).Split("`t")
-    logger $errMsg
-    logger "Please close any files that are open or mounted in the $scriptDir\Temp folder"
-    exit
-}#>
+
 logger $welcomeText -logOnly
 $logWindow = Start-Process powershell -Argumentlist "`$host.UI.RawUI.WindowTitle = 'VLC Logging window';Get-Content '$logfile' -wait" -PassThru
 
@@ -2868,16 +2917,18 @@ if ($isCLI) {
 
                 If ($btnSubmit.Text -like "Construct!") {
                     UnlockFormFields
+                    ResetLabels
                     $btnSubmit.Text = "Validate"
                     $btnSubmit.ForeColor=[System.Drawing.Color]::"Black"
                     $btnSubmit.BackColor=[System.Drawing.Color]::"Yellow"
                 } else {
                     ClearFormFields
+                    ResetLabels
                     $pnlWaysPanel.Visible = $true
                     $btnExpert.Visible = $true
                 }
             })
-            $btnBack.location = New-Object System.Drawing.Point (15,370)
+            $btnBack.location = New-Object System.Drawing.Point (125,370)
             $frmVCFLCMain.Controls.Add($btnBack)
 
             $btnClear = New-Object System.Windows.Forms.Button
@@ -2887,11 +2938,16 @@ if ($isCLI) {
             $btnClear.Add_Click({
                 ClearFormFields
                 UnLockFormFields
+                ResetLabels
+                $listCluster.Items.Clear()
+                $listNetName.Items.Clear()
+                $listDatastore.Items.Clear()
+                $listResourcePool.Items.Clear()
                 $btnSubmit.Text = "Validate"
                 $btnSubmit.ForeColor=[System.Drawing.Color]::"Black"
                 $btnSubmit.BackColor=[System.Drawing.Color]::"Yellow"
                     })
-            $btnClear.location = New-Object System.Drawing.Point (75,370)
+            $btnClear.location = New-Object System.Drawing.Point (15,370)
             $frmVCFLCMain.Controls.Add($btnClear)
 
             $lblCluster = New-Object system.windows.Forms.Label
