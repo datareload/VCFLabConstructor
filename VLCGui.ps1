@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VCF HH Version - Lab Constructor beta v4.5 10/21/2022
+# VCF HH Version - Lab Constructor beta v4.5 10/24/2022
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenika@vmware.com;gojose@vmware.com
 #
@@ -157,53 +157,13 @@ Function byteWriter($dataIn, $fileOut)
 Function Get-IniContent ($filePath)
 {
     $ini = @{}
-    switch -regex -file $FilePath
-    {
-        “^\[(.+)\]” # Section
-        {
-            $section = $matches[1]
-            $ini[$section] = @{}
-            $CommentCount = 0
-        }
-        “^(;.*)$” # Comment
-        {
-            $value = $matches[1]
-            $CommentCount = $CommentCount + 1
-            $name = “Comment” + $CommentCount
-            $ini[$section][$name] = $value
-        } 
-        “(.+?)\s*=(.*)” # Key
-        {
-            $name,$value = $matches[1..2]
-            $ini[$section][$name] = $value
-        }
-    }
+    Get-Content $filepath | ForEach-Object {$ini.Add($_.split("=")[0],$_.split("=")[1])}
     return $ini
 }
 Function Out-IniFile($InputObject, $FilePath)
 {
     $outFile = New-Item -ItemType file -Path $Filepath -Force
-    foreach ($i in $InputObject.keys)
-    {
-        if (!($($InputObject[$i].GetType().Name) -eq “Hashtable”))
-        {
-            #No Sections
-            Add-Content -Path $outFile -Value “$i=$($InputObject[$i])”
-        } else {
-            #Sections
-            Add-Content -Path $outFile -Value “[$i]”
-            Foreach ($j in ($InputObject[$i].keys | Sort-Object))
-            {
-                if ($j -match “^Comment[\d]+”) {
-                    Add-Content -Path $outFile -Value “$($InputObject[$i][$j])”
-                } else {
-                    Add-Content -Path $outFile -Value “$j=$($InputObject[$i][$j])” 
-                }
-
-            }
-            Add-Content -Path $outFile -Value “”
-        }
-    }
+    $inputObject.GetEnumerator() | Sort-Object Name | ForEach-Object {"{0}={1}" -f $_.Name,$_.Value} | Add-Content -Path $outFile
 }
 Function addMenuItem 
 { 
@@ -228,73 +188,75 @@ Function addMenuItem
 Function SetFormValues ($formContent)
 {
         #VCF Settings
-        $vcfSettings = $formContent.vcfsettings
-
-        $txtDomainName.Text = $vcfSettings.domainName
-
-        $txtMgmtNet.Text = $vcfSettings.mgmtNet
-        $txtMgmtGateway.Text = $vcfSettings.mgmtNetGateway
-        $txtCBLoc.Text = $vcfSettings.CBISOLoc
-        $txtCBIP.Text = $vcfSettings.CBIP
-        $txtNestedJSON.Text = $vcfSettings.addHostsJson
-        $txtNTP.Text = $vcfSettings.NTPIP
-        $txtDNS.Text = $vcfSettings.DNSIP
-        $txtlabGateway.Text = $vcfSettings.labGateway
-        $txtLabDNS.Text = $vcfSettings.labDNS
-        $txtvSphereLoc.Text = $vcfSettings.vSphereLoc
-        $chkUseCBIso.Checked = $vcfSettings.UseCBIso
-        $txtvmPrefix.Text = $vcfSettings.vmPrefix
-	    $txtMasterPass.Text = $vcfSettings.masterPass
-        $txtBringupFile.Text = $vcfSettings.bringupFile
-        $chkInternalSvcs.Checked = $vcfSettings.chkInternal
-        $chkSb.Checked = $vcfSettings.imageAfterBuild
-
- #       if ($vcfSettings.allFlash -eq "True") {
- #           $chkEC.Checked = $true
- #           } else {
- #           $chkEC.Checked = $false
- #           }
+        $txtDomainName.Text = $formContent.vcfDomainName
+        $txtMgmtNet.Text = $formContent.mgmtNetSubnet
+        $txtMgmtGateway.Text = $formContent.mgmtNetGateway
+        $txtMgmtNetVLAN.Text = $formContent.mgmtNetVlan
+        $txtCBLoc.Text = $formContent.CBISOLoc
+        $txtCBIP.Text = $formContent.cbIPAddress
+        $txtNestedJSON.Text = $formContent.addHostsJson
+        $txtNTP.Text = $formContent.ntpServer
+        $txtDNS.Text = $formContent.dnsServer
+        $txtlabGateway.Text = $formContent.labGateway
+        $txtLabDNS.Text = $formContent.labDNS
+        $txtvSphereLoc.Text = $formContent.vSphereLoc
+        $chkUseCBIso.Checked = $formContent.UseCBIso
+        $txtvmPrefix.Text = $formContent.nestedVMPrefix
+	    $txtMasterPass.Text = $formContent.masterPassword
+        $txtBringupFile.Text = $formContent.VCFEMSFile
+        $chkInternalSvcs.Checked = $formContent.chkInternal
+        $chkSb.Checked = $formContent.bringupAfterBuild
+        $txtNSXSuper.Text = $formContent.nsxSuperNet
+        $chkEC.Checked = $formContent.deployEdgeCluster
+        $chkAVNs.Checked = $formContent.deployAVNs
+        $chkWldMgmt.Checked = $formContent.deployWldMgmt
+        if ($txtNestedJSON.Text -ne $null -or $txtNestedJSON.Text -ne "")
+        {
+            $comboBoxBuildOps.Text= $formContent.buildOps
+        }
 
         #Target Environment Settings
-        $viSettings = $formContent.visettings
 
-        $txtHostIP.Text = $visettings.esxhost
-        $txtUsername.Text = $visettings.username
-        $txtPassword.Text = $visettings.password
+        $txtHostIP.Text = $formContent.esxhost
+        $txtUsername.Text = $formContent.username
+        $txtPassword.Text = $formContent.password
 }
 Function GetFormValues ($formContent)
 {
         $formContent = @{}
-        $vcfSettings = @{}
-        $viSettings = @{}
 
         #VCF Settings
-        $vcfSettings.add("domainName",$txtDomainName.Text)
-        $vcfSettings.add("mgmtNet",$txtMgmtNet.Text)
-	    $vcfSettings.add("mgmtNetGateway",$txtMgmtGateway.Text)
-	    $vcfSettings.add("CBISOLoc",$txtCBLoc.Text)
-	    $vcfSettings.add("CBIP",$txtCBIP.Text)
-        $vcfSettings.add("vSphereLoc",$txtvSphereLoc.Text)
-        $vcfSettings.add("labGateway",$txtLabGateway.Text)
-        $vcfSettings.add("labDNS",$txtLabDNS.Text)
-        $vcfSettings.add("useCBIso",$chkUseCBIso.Checked)
-        $vcfSettings.add("vmPrefix",$txtvmPrefix.Text)
-	    $vcfSettings.add("addHostsJson",$txtNestedJSON.Text)
-	    $vcfSettings.add("masterPass",$txtMasterPass.Text)
-        $vcfSettings.add("NTPIP",$txtNTP.Text)
-        $vcfSettings.add("DNSIP",$txtDNS.Text)
-        $vcfSettings.add("bringupFile",$txtBringupFile.Text)
-	    $vcfSettings.add("imageAfterBuild",$chkSb.Checked)
-#        $vcfSettings.add("allFlash",$chkEC.Checked)
-        $vcfSettings.add("chkInternal",$chkInternalSvcs.Checked)
-        
+        $formContent.add("vcfDomainName",$txtDomainName.Text)
+        $formContent.add("mgmtNetSubnet",$txtMgmtNet.Text)
+	    $formContent.add("mgmtNetGateway",$txtMgmtGateway.Text)
+        $formContent.add("mgmtNetVlan",$txtMgmtNetVLAN.Text)
+        $formContent.add("mgmtNetCidr",$($($txtMgmtNet.Text).Split("/"))[1])
+	    $formContent.add("CBISOLoc",$txtCBLoc.Text)
+	    $formContent.add("cbIPAddress",$txtCBIP.Text)
+        $formContent.add("vSphereLoc",$txtvSphereLoc.Text)
+        $formContent.add("labGateway",$txtLabGateway.Text)
+        $formContent.add("labDNS",$txtLabDNS.Text)
+        $formContent.add("useCBIso",$chkUseCBIso.Checked)
+        $formContent.add("nestedVMPrefix",$txtvmPrefix.Text)
+	    $formContent.add("addHostsJson",$txtNestedJSON.Text)
+	    $formContent.add("masterPassword",$txtMasterPass.Text)
+        $formContent.add("ntpServer",$txtNTP.Text)
+        $formContent.add("dnsServer",$txtDNS.Text)
+        $formContent.add("VCFEMSFile",$txtBringupFile.Text)
+	    $formContent.add("bringupAfterBuild",$chkSb.Checked)
+        $formContent.add("chkInternal",$chkInternalSvcs.Checked)
+        $formContent.add("nsxSuperNet",$txtNSXSuper.Text)
+        $formContent.add("buildOps",$comboBoxBuildOps.Text)
+        $formContent.add("deployEdgeCluster",$chkEC.Checked)
+        $formContent.add("deployAVNs",$chkAVNs.Checked)
+        $formContent.add("deployWldMgmt",$chkWldMgmt.Checked)
         #Target Environment Settings
-        $viSettings.add("esxhost",$txtHostIP.Text)
-        $viSettings.add("username",$txtUsername.Text)
-        $viSettings.add("password",$txtPassword.Text)
-
-        $formContent.add("vcfSettings",$vcfSettings)
-        $formContent.add("viSettings",$viSettings)
+        $formContent.add("esxhost",$txtHostIP.Text)
+        $formContent.add("username",$txtUsername.Text)
+        $formContent.add("password",$txtPassword.Text)
+        $formContent.add("netName",$listNetName.SelectedItem)
+        $formContent.add("cluster",$listCluster.SelectedItem)
+        $formContent.add("ds",$listDatastore.SelectedItem)
 
         return $formContent
 }
@@ -543,6 +505,7 @@ Function ClearFormFields
         $txtBringupFile.Text = ""
         $txtDomainName.Text = ""
         $txtMgmtNet.Text = ""
+        $txtMgmtNetVLAN.Text = ""
 	    $txtMgmtGateway.Text = ""
 	    $txtCBLoc.Text = ""
 	    $txtNestedJSON.Text = ""
@@ -1108,6 +1071,7 @@ Function cbConfigurator
     $replaceNet +="echo Wants=local-fs.target network-online.target network.target`n"
     $replaceNet +="echo `n"
     $replaceNet +="echo [Service]`n"
+    $replaceNet +="echo ExecStart=/sbin/ethtool -K eth0 gso off gro off tso off`n"
     $replaceNet +="echo ExecStart=/sbin/ifconfig eth0 mtu 8940 up`n"
     $replaceNet +="echo ExecStart=/sbin/ifconfig eth0.$($mgmtVlanId) mtu 8940 up`n"
     $replaceNet +="echo ExecStart=/sbin/ifconfig eth0.$($edgeUplinkVlans[0]) mtu 8940 up`n"
@@ -1421,8 +1385,8 @@ function setFormControls ($formway)
 
                         $lblMgmtNetVLAN.Enabled = $false
                         $txtMgmtNetVLAN.Enabled = $false
-                        $lblMgmtNetVLAN.Visible = $false
-                        $txtMgmtNetVLAN.Visible = $false
+                        $lblMgmtNetVLAN.Visible = $true
+                        $txtMgmtNetVLAN.Visible = $true
 
                         $lblMgmtNet.Enabled = $false
                         $txtMgmtNet.Enabled = $false
@@ -1460,8 +1424,8 @@ function setFormControls ($formway)
                         $txtNestedJSON.Text = "" 
 
                         $chkUseCBISO.Checked = $true
-                        $lblvSphereLoc.Enabled = $false
-                        $txtvSphereLoc.Enabled = $false
+                        $lblvSphereLoc.Enabled = $true
+                        $txtvSphereLoc.Enabled = $true
 
                         $txtMasterPass.Enabled = $false
                         $lblMasterPass.Enabled = $false
@@ -1685,6 +1649,7 @@ function setFormControls ($formway)
                         $lblMgmtGateway.Enabled = $true
                         $txtMgmtGateway.Enabled = $true
                         $txtNestedJSON.Enabled = $true
+                        $txtDomainName.Enabled = $true
                         $lblNestedJSON.Enabled = $true
                         $lblBringupFile.Enabled = $true
                         $txtBringupFile.Enabled = $true
@@ -2048,8 +2013,10 @@ if ($isCLI) {
     }
 
     $iniContent = Get-Content $iniConfigFile
-    $global:userOptions += @{"useCBIso" = 1}
     $global:userOptions += @{"internalSvcs" = 1}
+    $global:userOptions += @{"guestOS" = "vmkernel65guest"}
+    $global:userOptions += @{"Typeguestdisk"="Thin"}
+    $global:userOptions += @{"cbName"="CB-01a"}
     $global:Ways = "internalsvcs"
     foreach($ic in $iniContent) {$global:userOptions +=@{$ic.Split("=")[0]=$ic.Split("=")[1]}}
     $global:bringUpOptions = Get-Content -Raw $($global:userOptions.VCFEMSFile)  | ConvertFrom-Json
@@ -3001,7 +2968,7 @@ if ($isCLI) {
             $btnExpert = New-Object System.Windows.Forms.Button
             $btnExpert.Width = 100
             $btnExpert.Height = 30
-            $btnExpert.Location = New-Object System.Drawing.Point(575,385)
+            $btnExpert.Location = New-Object System.Drawing.Point(725,385)
             $btnExpert.Text = "Expert Mode"
             $btnExpert.Visible = $true
             $btnExpert.Add_Click({
@@ -3961,7 +3928,7 @@ public static class Dummy {
     $domainManagercfg+="echo vc7.deployment.option:tiny`n"
     $domainManagercfg+=")>>/etc/vmware/vcf/domainmanager/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/lcm.core.manifest.poll.interval=300000/lcm.core.manifest.poll.interval=120000/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
-    $domainManagercfg += "sed -i 's/vrslcm.install.base.version=8.1.0-16776528/vrslcm.install.base.version=8.6.2-19221620/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
+    $domainManagercfg += "sed -i 's/vrslcm.install.base.version=8.1.0-16776528/vrslcm.install.base.version=8.8.2-20080494/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/vra.install.base.version=8.1.0-15986821//g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/vrops.install.base.version=8.1.1-16522874//g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/vrli.install.base.version=8.1.1-16281169//g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
