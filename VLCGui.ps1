@@ -3690,6 +3690,8 @@ $kscfg+="vim-cmd hostsvc/datastore/destroy datastore1`n"
 $kscfg+="esxcli network firewall ruleset set --ruleset-id=ntpClient -e true`n"
 $kscfg+="esxcli system ntp set -e yes -s $ntpServer`n"
 $kscfg+="esxcli system ntp config get >> /var/log/vlccheck.txt`n"
+$kscfg+="esxcfg-advcfg -s 0 /Net/FollowHardwareMac`n"
+
 $kscfg+="/sbin/chkconfig ntpd on`n"
 $kscfg+="reboot -d 1`n"
 	
@@ -3979,12 +3981,12 @@ public static class Dummy {
 
     Copy-VMGuestFile -Server $managementVCIP -Source "$scriptDir\$tempDir\DomainManagerConfig.bash" -Destination "/home/vcf/" -LocalToGuest -VM $sddcManagerVM -GuestUser root -GuestPassword $($userOptions.masterPassword) -Force
 
-    Invoke-VMScript -ScriptType Bash -Server $managementVCIP -GuestUser root -GuestPassword $($userOptions.masterPassword) -VM $sddcManagerVM -ScriptText "chmod 777 /home/vcf/DomainManagerConfig.bash;/home/vcf/DomainManagerConfig.bash" -RunAsync
+    Invoke-VMScript -ScriptType Bash -Server $managementVCIP -GuestUser root -GuestPassword $($userOptions.masterPassword) -VM $sddcManagerVM -ScriptText "chmod 777 /home/vcf/DomainManagerConfig.bash;/home/vcf/DomainManagerConfig.bash" #-RunAsync
 
-    do {
+    <#do {
             logger "Waiting for SDDC Manager to reset..."
             sleep 5      
-        } until(Test-NetConnection $sddcMgrIP -Port 22| ? { !$_.tcptestsucceeded } )
+        } until(Test-NetConnection $sddcMgrIP -Port 22| ? { !$_.tcptestsucceeded } )#>
 
     logger "Removing Memory reservation on NSX Manager"
     Get-VM -Server $conVcenter -Name $nsxMgtVM | Get-VMResourceConfiguration |Set-VMResourceConfiguration -MemReservationGB 0
