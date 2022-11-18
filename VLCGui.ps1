@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VCF HH Version - Lab Constructor beta v4.4.1 9/22/2022
+# VCF HH Version - Lab Constructor beta v4.5 10/24/2022
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenika@vmware.com;gojose@vmware.com
 #
@@ -7,7 +7,8 @@
 ###################################################################
 param (
     [string]$iniConfigFile,
-    [bool]$isCLI=$false
+    [bool]$isCLI=$false,
+    [bool]$debugMode=$false
 )
 
 $WarningPreference="SilentlyContinue"
@@ -21,11 +22,12 @@ $global:bringupAfterBuild = $false
 $global:validationSuccess = $false
 $global:Ways = ""
 $global:psVer = ""
+$global:skipSSLFlag = ""
 $logPathDir = New-Item -ItemType Directory -Path "$scriptDir\Logs" -Force
 $logfile = "$logPathDir\VLC-Log-_$(get-date -format `"yyyymmdd_hhmmss`").txt"
 $tempDir = "Temp-$(Get-Date -Format yyyyMMddHHMMss)"
 
-$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v4.4.1 - Process Window'
+$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v4.5 - Process Window'
 $welcomeText =@"
 Welcome to:
 __     ______ _____ _          _      ____                _                   _             
@@ -48,7 +50,7 @@ Write-Host "Major Powershell version is: $global:psVer"
 # Import PowerCLI Module
 Write-host "Checking PowerCLI 12.1 or greater installation."
 $modCnt = 1
-$moduleInstalled = Get-Module -ListAvailable | Where-Object {$_.Name -like "VMware.VimAutomation.Core"} | Select Version | Sort-Object -Property Version -Descending
+$moduleInstalled = Get-Module -ListAvailable | Where-Object {$_.Name -like "VMware.VimAutomation.Core"} | Select-Object Version | Sort-Object -Property Version -Descending
     
 foreach ($mod in $moduleInstalled) {
     write-host "Found PowerCLI version $($mod.Version.ToString()) installed."
@@ -101,7 +103,7 @@ foreach ($mod in $moduleInstalled) {
         )
     }
     
-    $result = Get-ItemProperty $regpath | Select DisplayName, DisplayVersion | Where {$_.DisplayName -like "VMware OVF Tool"}
+    $result = Get-ItemProperty $regpath | Select-Object DisplayName, DisplayVersion | Where-Object {$_.DisplayName -like "VMware OVF Tool"}
 
     if ($result -eq $null) {
         write-host "Please Install VMware OVF Tool 4.3 or greater from https://www.vmware.com/support/developer/ovf/ and re-run the script." -ForegroundColor Yellow
@@ -155,53 +157,13 @@ Function byteWriter($dataIn, $fileOut)
 Function Get-IniContent ($filePath)
 {
     $ini = @{}
-    switch -regex -file $FilePath
-    {
-        “^\[(.+)\]” # Section
-        {
-            $section = $matches[1]
-            $ini[$section] = @{}
-            $CommentCount = 0
-        }
-        “^(;.*)$” # Comment
-        {
-            $value = $matches[1]
-            $CommentCount = $CommentCount + 1
-            $name = “Comment” + $CommentCount
-            $ini[$section][$name] = $value
-        } 
-        “(.+?)\s*=(.*)” # Key
-        {
-            $name,$value = $matches[1..2]
-            $ini[$section][$name] = $value
-        }
-    }
+    Get-Content $filepath | ForEach-Object {$ini.Add($_.split("=")[0],$_.split("=")[1])}
     return $ini
 }
 Function Out-IniFile($InputObject, $FilePath)
 {
     $outFile = New-Item -ItemType file -Path $Filepath -Force
-    foreach ($i in $InputObject.keys)
-    {
-        if (!($($InputObject[$i].GetType().Name) -eq “Hashtable”))
-        {
-            #No Sections
-            Add-Content -Path $outFile -Value “$i=$($InputObject[$i])”
-        } else {
-            #Sections
-            Add-Content -Path $outFile -Value “[$i]”
-            Foreach ($j in ($InputObject[$i].keys | Sort-Object))
-            {
-                if ($j -match “^Comment[\d]+”) {
-                    Add-Content -Path $outFile -Value “$($InputObject[$i][$j])”
-                } else {
-                    Add-Content -Path $outFile -Value “$j=$($InputObject[$i][$j])” 
-                }
-
-            }
-            Add-Content -Path $outFile -Value “”
-        }
-    }
+    $inputObject.GetEnumerator() | Sort-Object Name | ForEach-Object {"{0}={1}" -f $_.Name,$_.Value} | Add-Content -Path $outFile
 }
 Function addMenuItem 
 { 
@@ -226,71 +188,96 @@ Function addMenuItem
 Function SetFormValues ($formContent)
 {
         #VCF Settings
-        $vcfSettings = $formContent.vcfsettings
-
-        $txtDomainName.Text = $vcfSettings.domainName
-
-        $txtMgmtNet.Text = $vcfSettings.mgmtNet
-        $txtMgmtGateway.Text = $vcfSettings.mgmtNetGateway
-        $txtCBLoc.Text = $vcfSettings.CBISOLoc
-        $txtCBIP.Text = $vcfSettings.CBIP
-        $txtNestedJSON.Text = $vcfSettings.addHostsJson
-        $txtNTP.Text = $vcfSettings.NTPIP
-        $txtDNS.Text = $vcfSettings.DNSIP
-        $txtvSphereLoc.Text = $vcfSettings.vSphereLoc
-        $chkUseCBIso.Checked = $vcfSettings.UseCBIso
-        $txtvmPrefix.Text = $vcfSettings.vmPrefix
-	    $txtMasterPass.Text = $vcfSettings.masterPass
-        $txtBringupFile.Text = $vcfSettings.bringupFile
-        $chkInternalSvcs.Checked = $vcfSettings.chkInternal
-        $chkSb.Checked = $vcfSettings.imageAfterBuild
-
- #       if ($vcfSettings.allFlash -eq "True") {
- #           $chkEC.Checked = $true
- #           } else {
- #           $chkEC.Checked = $false
- #           }
+        $txtDomainName.Text = $formContent.vcfDomainName
+        $txtMgmtNet.Text = $formContent.mgmtNetSubnet
+        $txtMgmtGateway.Text = $formContent.mgmtNetGateway
+        $txtMgmtNetVLAN.Text = $formContent.mgmtNetVlan
+        $txtCBLoc.Text = $formContent.CBISOLoc
+        $txtCBIP.Text = $formContent.cbIPAddress
+        $txtNestedJSON.Text = $formContent.addHostsJson
+        $txtNTP.Text = $formContent.ntpServer
+        $txtDNS.Text = $formContent.dnsServer
+        $txtlabGateway.Text = $formContent.labGateway
+        $txtLabDNS.Text = $formContent.labDNS
+        $txtvSphereLoc.Text = $formContent.vSphereLoc
+        $chkUseCBIso.Checked = $formContent.UseCBIso
+        $txtvmPrefix.Text = $formContent.nestedVMPrefix
+	    $txtMasterPass.Text = $formContent.masterPassword
+        $txtBringupFile.Text = $formContent.VCFEMSFile
+        $chkInternalSvcs.Checked = $formContent.chkInternal
+        $chkSb.Checked = $formContent.bringupAfterBuild
+        $txtNSXSuper.Text = $formContent.nsxSuperNet
+        $chkEC.Checked = $formContent.deployEdgeCluster
+        $chkAVNs.Checked = $formContent.deployAVNs
+        $chkWldMgmt.Checked = $formContent.deployWldMgmt
+        if ($txtNestedJSON.Text -ne $null -or $txtNestedJSON.Text -ne "")
+        {
+            $comboBoxBuildOps.Text= $formContent.buildOps
+        }
 
         #Target Environment Settings
-        $viSettings = $formContent.visettings
 
-        $txtHostIP.Text = $visettings.esxhost
-        $txtUsername.Text = $visettings.username
-        $txtPassword.Text = $visettings.password
+        $txtHostIP.Text = $formContent.esxhost
+        $txtUsername.Text = $formContent.username
+        $txtPassword.Text = $formContent.password
 }
 Function GetFormValues ($formContent)
 {
         $formContent = @{}
-        $vcfSettings = @{}
-        $viSettings = @{}
 
         #VCF Settings
-        $vcfSettings.add("domainName",$txtDomainName.Text)
-        $vcfSettings.add("mgmtNet",$txtMgmtNet.Text)
-	    $vcfSettings.add("mgmtNetGateway",$txtMgmtGateway.Text)
-	    $vcfSettings.add("CBISOLoc",$txtCBLoc.Text)
-	    $vcfSettings.add("CBIP",$txtCBIP.Text)
-        $vcfSettings.add("vSphereLoc",$txtvSphereLoc.Text)
-        $vcfSettings.add("useCBIso",$chkUseCBIso.Checked)
-        $vcfSettings.add("vmPrefix",$txtvmPrefix.Text)
-	    $vcfSettings.add("addHostsJson",$txtNestedJSON.Text)
-	    $vcfSettings.add("masterPass",$txtMasterPass.Text)
-        $vcfSettings.add("NTPIP",$txtNTP.Text)
-        $vcfSettings.add("DNSIP",$txtDNS.Text)
-        $vcfSettings.add("bringupFile",$txtBringupFile.Text)
-	    $vcfSettings.add("imageAfterBuild",$chkSb.Checked)
-#        $vcfSettings.add("allFlash",$chkEC.Checked)
-        $vcfSettings.add("chkInternal",$chkInternalSvcs.Checked)
-        
+        $formContent.add("vcfDomainName",$txtDomainName.Text)
+        $formContent.add("mgmtNetSubnet",$txtMgmtNet.Text)
+	    $formContent.add("mgmtNetGateway",$txtMgmtGateway.Text)
+        $formContent.add("mgmtNetVlan",$txtMgmtNetVLAN.Text)
+        $formContent.add("mgmtNetCidr",$($($txtMgmtNet.Text).Split("/"))[1])
+	    $formContent.add("CBISOLoc",$txtCBLoc.Text)
+	    $formContent.add("cbIPAddress",$txtCBIP.Text)
+        $formContent.add("vSphereLoc",$txtvSphereLoc.Text)
+        $formContent.add("labGateway",$txtLabGateway.Text)
+        $formContent.add("labDNS",$txtLabDNS.Text)
+        $formContent.add("useCBIso",$chkUseCBIso.Checked)
+        $formContent.add("nestedVMPrefix",$txtvmPrefix.Text)
+	    $formContent.add("addHostsJson",$txtNestedJSON.Text)
+	    $formContent.add("masterPassword",$txtMasterPass.Text)
+        $formContent.add("ntpServer",$txtNTP.Text)
+        $formContent.add("dnsServer",$txtDNS.Text)
+        $formContent.add("VCFEMSFile",$txtBringupFile.Text)
+	    $formContent.add("bringupAfterBuild",$chkSb.Checked)
+        $formContent.add("chkInternal",$chkInternalSvcs.Checked)
+        $formContent.add("nsxSuperNet",$txtNSXSuper.Text)
+        $formContent.add("buildOps",$comboBoxBuildOps.Text)
+        $formContent.add("deployEdgeCluster",$chkEC.Checked)
+        $formContent.add("deployAVNs",$chkAVNs.Checked)
+        $formContent.add("deployWldMgmt",$chkWldMgmt.Checked)
         #Target Environment Settings
-        $viSettings.add("esxhost",$txtHostIP.Text)
-        $viSettings.add("username",$txtUsername.Text)
-        $viSettings.add("password",$txtPassword.Text)
-
-        $formContent.add("vcfSettings",$vcfSettings)
-        $formContent.add("viSettings",$viSettings)
+        $formContent.add("esxhost",$txtHostIP.Text)
+        $formContent.add("username",$txtUsername.Text)
+        $formContent.add("password",$txtPassword.Text)
+        $formContent.add("netName",$listNetName.SelectedItem)
+        $formContent.add("cluster",$listCluster.SelectedItem)
+        $formContent.add("ds",$listDatastore.SelectedItem)
 
         return $formContent
+}
+Function ResetLabels {
+    $lblHost.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblHostUser.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblPass.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblDomainName.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblCluster.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblNetName.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblDatastore.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblvSphereLoc.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblNestedJSON.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblMasterPass.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblMgmtNet.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblCBLoc.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblCBIP.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblMasterPass.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblBringupFile.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblDNS.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblNTP.BackColor = [System.Drawing.Color]::"DarkGray"
 }
 Function ValidateFormValues
 { param ($validEntries)
@@ -518,6 +505,7 @@ Function ClearFormFields
         $txtBringupFile.Text = ""
         $txtDomainName.Text = ""
         $txtMgmtNet.Text = ""
+        $txtMgmtNetVLAN.Text = ""
 	    $txtMgmtGateway.Text = ""
 	    $txtCBLoc.Text = ""
 	    $txtNestedJSON.Text = ""
@@ -526,8 +514,11 @@ Function ClearFormFields
         $txtvmPrefix.Text = ""
         $txtCBIP.Text = ""
         $txtDNS.Text = ""
+        $txtLabGateway.Text = ""
+        $txtLabDNS.Text = ""
         $txtNTP.Text = ""
 	    $chkInternalSvcs.Checked = $false
+        $btnSubmit.Text = "Validate"
         $chkSb.Checked = $false
 #        $chkEC.Checked = $false
         #Target Environment Settings
@@ -535,6 +526,7 @@ Function ClearFormFields
         $txtHostIP.Text = ""
         $txtUsername.Text = ""
         $txtPassword.Text = ""
+        ResetLabels
 }
 Function LockFormFields 
 {
@@ -549,9 +541,11 @@ Function LockFormFields
         $txtvmPrefix.Enabled=$false
         $txtCBIP.Enabled=$false
         $txtDNS.Enabled=$false
+        $txtLabDNS.Enabled=$false
+        $txtLabGateway.Enabled=$false
         $txtNTP.Enabled=$false
 	    $chkInternalSvcs.Enabled=$false
-        $chkSb.Enabled=$false
+        $chkSb.Enabled=$true
 #        $chkEC.Enabled=$false
         $chkUseCBIso.Enabled=$false
         $txtHostIP.Enabled=$false
@@ -571,6 +565,8 @@ Function UnLockFormFields
 	    $txtNestedJSON.Enabled=$true
 	    $txtMasterPass.Enabled=$true
         $txtvSphereLoc.Enabled=$true
+        $txtLabDNS.Enabled=$true
+        $txtLabGateway.Enabled=$true
         $txtvmPrefix.Enabled=$true
         $txtCBIP.Enabled=$true
         $txtDNS.Enabled=$true
@@ -773,20 +769,30 @@ Function Get-VIInfo($vmHost, $vmUser, $vmPassword)
         }
     Disconnect-VIServer * -Confirm:$false -Force
 }       
-function extractvSphereISO ($vSphereISOPath) 
+function extractvSphereISO ($vSphereISOPath)
 {
-
+ 
     $mount = Mount-DiskImage -ImagePath "$vSphereISOPath" -PassThru
-
+ 
          if($mount) {
-         
-             $volume = Get-DiskImage -ImagePath $mount.ImagePath | Get-Volume
-             $source = $volume.DriveLetter + ":\*"
+        
+             $i=1
+             do {
+                $i++
+                $volume = Get-DiskImage -ImagePath $mount.ImagePath | Get-Volume
+                sleep 5
+                $source = $volume.DriveLetter
+             } until($i -gt 10 -Or $source)
+             if (! $source) {
+                 logger "ERROR: Could not get root mount for $vSphereISOPath"
+                 Dismount-DiskImage -ImagePath "$vSphereISOPath"
+                 exit
+             }
              $folder = mkdir $scriptDir\$tempDir\ISO -Force
-         
-             logger "Extracting '$vsphereISOPath' to '$folder'..."
-		 
-             $params = @{Path = $source; Destination = $folder; Recurse = $true; Force = $true;}
+        
+             logger "Extracting '$vsphereISOPath' mounted on '$source' to '$folder'..."
+            
+             $params = @{Path = $source + ":\*"; Destination = $folder; Recurse = $true; Force = $true;}
              cp @params
              $hide = Dismount-DiskImage -ImagePath "$vSphereISOPath"
              logger "Copy complete"
@@ -1065,6 +1071,7 @@ Function cbConfigurator
     $replaceNet +="echo Wants=local-fs.target network-online.target network.target`n"
     $replaceNet +="echo `n"
     $replaceNet +="echo [Service]`n"
+    $replaceNet +="echo ExecStart=/sbin/ethtool -K eth0 gso off gro off tso off`n"
     $replaceNet +="echo ExecStart=/sbin/ifconfig eth0 mtu 8940 up`n"
     $replaceNet +="echo ExecStart=/sbin/ifconfig eth0.$($mgmtVlanId) mtu 8940 up`n"
     $replaceNet +="echo ExecStart=/sbin/ifconfig eth0.$($edgeUplinkVlans[0]) mtu 8940 up`n"
@@ -1109,12 +1116,13 @@ Function cbConfigurator
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($tzEgress) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($tzIngress) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($nsxSuperNet) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
-    $replaceNet +="iptables -t nat -A POSTROUTING -s $($DhcpIPSubnet/$DhcpIPSubnetCIDR) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
+    $replaceNet +="iptables -t nat -A POSTROUTING -s $DhcpIPSubnet/$DhcpSubnetCIDR -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT`n"
     $replaceNet +="iptables-save > /etc/systemd/scripts/ip4save`n"
     $replaceNet +="sed -i '/# End/q' /etc/systemd/scripts/iptables`n"
     $replaceNet +="systemctl restart iptables`n"
     $replaceNet +="systemctl start nfs-server`n"
+    $replaceNet +="ethtool -K eth0 gso off gro off tso off`n"
     $replaceNet +="END`n"
 
     logger "Creating bash script to: Backup NIC, DHCP and NTP config files on CB"
@@ -1175,7 +1183,7 @@ Function cbConfigurator
     $replaceDNS +="echo upstream_servers[\`"$revxRegionDNS\`"] = \`"127.0.0.1\`"`n"
     $replaceDNS +="echo upstream_servers[\`"vcf.holo.lab.\`"] = \`"10.0.0.201\`"`n"
     $replaceDNS +="echo upstream_servers[\`"$vcfDomainName.\`"] = \`"127.0.0.1\`"`n"
-    $replaceDNS +="echo recursive_acl = \`"$($DhcpIPSubnet/$DhcpIPSubnetCIDR),$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
+    $replaceDNS +="echo recursive_acl = \`"$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
     $replaceDNS +="echo filter_rfc1918 = 0`n"
     $replaceDNS +=")> /etc/dwood3rc`n"
     $replaceDNS +="(`n"
@@ -1252,7 +1260,7 @@ Function cbConfigurator
     $replaceDNS +="/sbin/chkconfig vaos off`n"
     $replaceDNS +="rm /opt/vmware/etc/init.d/vamitty.conf`n"
     $replaceDNS +="rm -rf /usr/lib/systemd/system/getty@tty1.service.d`n"
-    $replaceDNS +="echo -e 'Cloudbuilder customized by \e[37;44mVLC\e[0m | \e[30;102mMgmt IP: $CloudBuilderIP\e[0m' >> /etc/issue`n"
+    $replaceDNS +="echo -e 'Cloudbuilder customized by \e[37;44mVLC 4.5\e[0m | \e[30;102mMgmt IP: $CloudBuilderIP\e[0m' >> /etc/issue`n"
     $replaceDNS +="shutdown -r`n"
     $replaceDNS +="END`n"
 
@@ -1322,7 +1330,7 @@ Function parseBringUpFile
     $txtNTP.text = $bringupObject.ntpServers
     $txtDNS.text = $bringupObject.dnsSpec.nameServer
     If ($global:Ways -ilike "internalsvcs") {
-        $txtCBIP.text = $bringupObject.ntpServers
+        $txtCBIP.text = $bringupObject.ntpServers[0]
     }
     $txtMasterPass.enabled = $false
     $txtNTP.enabled = $false
@@ -1377,16 +1385,24 @@ function setFormControls ($formway)
 
                         $lblMgmtNetVLAN.Enabled = $false
                         $txtMgmtNetVLAN.Enabled = $false
+                        $lblMgmtNetVLAN.Visible = $true
+                        $txtMgmtNetVLAN.Visible = $true
 
                         $lblMgmtNet.Enabled = $false
                         $txtMgmtNet.Enabled = $false
                         $lblMgmtNet.visible = $true
-                        $txtMgmtNet.visible = $true                       
+                        $txtMgmtNet.visible = $true   
+                        
 
-                        $lblLabGateway.Enabled = $true
-                        $txtLabGateway.Enabled = $true
+                        $lblLabGateway.Enabled = $false
+                        $txtLabGateway.Enabled = $false
                         $lblLabGateway.Visible = $false
                         $txtLabGateway.Visible = $false
+
+                        $lblLabDNS.Enabled = $false
+                        $txtLabDNS.Enabled = $false
+                        $lblLabDNS.Visible = $false
+                        $txtLabDNS.Visible = $false
 
                         $lblMgmtGateway.Enabled = $false
                         $txtMgmtGateway.Enabled = $false
@@ -1408,8 +1424,8 @@ function setFormControls ($formway)
                         $txtNestedJSON.Text = "" 
 
                         $chkUseCBISO.Checked = $true
-                        $lblvSphereLoc.Enabled = $false
-                        $txtvSphereLoc.Enabled = $false
+                        $lblvSphereLoc.Enabled = $true
+                        $txtvSphereLoc.Enabled = $true
 
                         $txtMasterPass.Enabled = $false
                         $lblMasterPass.Enabled = $false
@@ -1449,10 +1465,12 @@ function setFormControls ($formway)
                         $txtBringUpFile.Enabled = $true
                         $lblBringUpFile.visible = $true
                         $txtBringUpFile.visible = $true
-                        $txtBringUpFile.Text = "$scriptDir\NOLIC-44-TMM-vcf-ems-public.json"
+                        $txtBringUpFile.Text = "$scriptDir\NOLIC-45-vcf-ems-public.json"
 
                         $lblMgmtNetVLAN.Enabled = $false
                         $txtMgmtNetVLAN.Enabled = $false
+                        $lblMgmtNetVLAN.Visible = $true
+                        $txtMgmtNetVLAN.Visible = $true
 
                         $lblMgmtNet.Enabled = $false
                         $txtMgmtNet.Enabled = $false
@@ -1463,6 +1481,11 @@ function setFormControls ($formway)
                         $txtLabGateway.Enabled = $true
                         $lblLabGateway.Visible = $true
                         $txtLabGateway.Visible = $true
+
+                        $lblLabDNS.Enabled = $true
+                        $txtLabDNS.Enabled = $true
+                        $lblLabDNS.Visible = $true
+                        $txtLabDNS.Visible = $true
 
                         $lblMgmtGateway.Enabled = $false
                         $txtMgmtGateway.Enabled = $false
@@ -1531,6 +1554,8 @@ function setFormControls ($formway)
 
                         $lblMgmtNetVLAN.Enabled = $true
                         $txtMgmtNetVLAN.Enabled = $true
+                        $lblMgmtNetVLAN.Visible = $true
+                        $txtMgmtNetVLAN.Visible = $true
 
                         $lblMgmtNet.Enabled = $false
                         $txtMgmtNet.Enabled = $false
@@ -1540,7 +1565,12 @@ function setFormControls ($formway)
                         $lblLabGateway.Enabled = $false
                         $txtLabGateway.Enabled = $false
                         $lblLabGateway.Visible = $false
-                        $txtLabGateway.Visible = $false  
+                        $txtLabGateway.Visible = $false
+
+                        $lblLabDNS.Enabled = $false
+                        $txtLabDNS.Enabled = $false
+                        $lblLabDNS.Visible = $false
+                        $txtLabDNS.Visible = $false
    
                         $lblMgmtGateway.Enabled = $false
                         $txtMgmtGateway.Enabled = $false
@@ -1619,11 +1649,16 @@ function setFormControls ($formway)
                         $lblMgmtGateway.Enabled = $true
                         $txtMgmtGateway.Enabled = $true
                         $txtNestedJSON.Enabled = $true
+                        $txtDomainName.Enabled = $true
                         $lblNestedJSON.Enabled = $true
                         $lblBringupFile.Enabled = $true
                         $txtBringupFile.Enabled = $true
                         $lblbuildOps.visible = $true
                         $comboBoxBuildOps.visible = $true
+                        $lblMgmtNetVLAN.Enabled = $true
+                        $txtMgmtNetVLAN.Enabled = $true
+                        $lblMgmtNetVLAN.Visible = $true
+                        $txtMgmtNetVLAN.Visible = $true
                         #$lblConflictWarning.Visible = $true
 
         }
@@ -1962,14 +1997,7 @@ function vcGetObject ($vcServer,$vcToken, [ValidateSet("vm","cluster","namespace
 #endregion Functions
 
 #Clean Temp / Initialize Log and logging window
-<#try {
-If (Test-Path "$scriptDir\Temp"){Remove-Item "$scriptDir\Temp" -Recurse -Force -Confirm:$False -ErrorAction:Stop}
-} catch {
-    $errMsg = ($_.Exception.Message).Split("`t")
-    logger $errMsg
-    logger "Please close any files that are open or mounted in the $scriptDir\Temp folder"
-    exit
-}#>
+
 logger $welcomeText -logOnly
 $logWindow = Start-Process powershell -Argumentlist "`$host.UI.RawUI.WindowTitle = 'VLC Logging window';Get-Content '$logfile' -wait" -PassThru
 
@@ -1985,8 +2013,10 @@ if ($isCLI) {
     }
 
     $iniContent = Get-Content $iniConfigFile
-    $global:userOptions += @{"useCBIso" = 1}
     $global:userOptions += @{"internalSvcs" = 1}
+    $global:userOptions += @{"guestOS" = "vmkernel65guest"}
+    $global:userOptions += @{"Typeguestdisk"="Thin"}
+    $global:userOptions += @{"cbName"="CB-01a"}
     $global:Ways = "internalsvcs"
     foreach($ic in $iniContent) {$global:userOptions +=@{$ic.Split("=")[0]=$ic.Split("=")[1]}}
     $global:bringUpOptions = Get-Content -Raw $($global:userOptions.VCFEMSFile)  | ConvertFrom-Json
@@ -2079,7 +2109,7 @@ if ($isCLI) {
 "@
 #region formControls
             $frmVCFLCMain = New-Object system.Windows.Forms.Form
-            $frmVCFLCMain.Text = "VCF Lab Constructor beta 4.4"
+            $frmVCFLCMain.Text = "VCF Lab Constructor beta 4.5"
             $frmVCFLCMain.TopMost = $true
             $frmVCFLCMain.Width = 850
             $frmVCFLCMain.Height = 450
@@ -2371,7 +2401,7 @@ if ($isCLI) {
             $chkEC.AutoSize = $true
             $chkEC.Width = 20
             $chkEC.Height = 20
-            $chkEC.location = new-object system.drawing.point(305,355)
+            $chkEC.location = new-object system.drawing.point(305,350)
             $chkEC.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
             $chkEC.Add_MouseHover($ShowTips)
             $chkEC.Add_CheckStateChanged({
@@ -2402,7 +2432,7 @@ if ($isCLI) {
             $lblchkEC.AutoSize = $true
             $lblchkEC.Width = 85
             $lblchkEC.Height = 20
-            $lblchkEC.location = new-object system.drawing.point(321,356)
+            $lblchkEC.location = new-object system.drawing.point(321,350)
             $lblchkEC.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
             $lblchkEC.Add_MouseHover($ShowTips)
             $frmVCFLCMain.controls.Add($lblchkEC)
@@ -2436,7 +2466,7 @@ if ($isCLI) {
             $chkWldMgmt.AutoSize = $true
             $chkWldMgmt.Width = 20
             $chkWldMgmt.Height = 20
-            $chkWldMgmt.location = new-object system.drawing.point(461,375)
+            $chkWldMgmt.location = new-object system.drawing.point(465,375)
             $chkWldMgmt.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
             $chkWldMgmt.Add_MouseHover($ShowTips)
             $frmVCFLCMain.controls.Add($chkWldMgmt)
@@ -2449,7 +2479,7 @@ if ($isCLI) {
             $lblchkWldMgmt.Width = 120
             $lblchkWldMgmt.Height = 20
             $lblchkWldMgmt.Enabled = $true
-            $lblchkWldMgmt.location = new-object system.drawing.point(476,375)
+            $lblchkWldMgmt.location = new-object system.drawing.point(480,375)
             $lblchkWldMgmt.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
             $lblchkWldMgmt.Add_MouseHover($ShowTips)
             $frmVCFLCMain.controls.Add($lblchkWldMgmt)
@@ -2461,7 +2491,7 @@ if ($isCLI) {
             $chkAVNs.Width = 20
             $chkAVNs.Height = 20
             $chkAVNs.Enabled = $true
-            $chkAVNs.location = new-object system.drawing.point(597,375)
+            $chkAVNs.location = new-object system.drawing.point(615,375)
             $chkAVNs.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
             $chkAVNs.Add_MouseHover($ShowTips)
             $frmVCFLCMain.controls.Add($chkAVNs)
@@ -2474,7 +2504,7 @@ if ($isCLI) {
             $lblchkAVNs.Width = 95
             $lblchkAVNs.Height = 20
             $lblchkAVNs.Enabled = $true
-            $lblchkAVNs.location = new-object system.drawing.point(612,375)
+            $lblchkAVNs.location = new-object system.drawing.point(630,375)
             $lblchkAVNs.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
             $lblchkAVNs.Add_MouseHover($ShowTips)
             $frmVCFLCMain.controls.Add($lblchkAVNs)
@@ -2854,16 +2884,18 @@ if ($isCLI) {
 
                 If ($btnSubmit.Text -like "Construct!") {
                     UnlockFormFields
+                    ResetLabels
                     $btnSubmit.Text = "Validate"
                     $btnSubmit.ForeColor=[System.Drawing.Color]::"Black"
                     $btnSubmit.BackColor=[System.Drawing.Color]::"Yellow"
                 } else {
                     ClearFormFields
+                    ResetLabels
                     $pnlWaysPanel.Visible = $true
                     $btnExpert.Visible = $true
                 }
             })
-            $btnBack.location = New-Object System.Drawing.Point (15,370)
+            $btnBack.location = New-Object System.Drawing.Point (125,370)
             $frmVCFLCMain.Controls.Add($btnBack)
 
             $btnClear = New-Object System.Windows.Forms.Button
@@ -2872,8 +2904,17 @@ if ($isCLI) {
             $btnClear.Height = 40
             $btnClear.Add_Click({
                 ClearFormFields
+                UnLockFormFields
+                ResetLabels
+                $listCluster.Items.Clear()
+                $listNetName.Items.Clear()
+                $listDatastore.Items.Clear()
+                $listResourcePool.Items.Clear()
+                $btnSubmit.Text = "Validate"
+                $btnSubmit.ForeColor=[System.Drawing.Color]::"Black"
+                $btnSubmit.BackColor=[System.Drawing.Color]::"Yellow"
                     })
-            $btnClear.location = New-Object System.Drawing.Point (75,370)
+            $btnClear.location = New-Object System.Drawing.Point (15,370)
             $frmVCFLCMain.Controls.Add($btnClear)
 
             $lblCluster = New-Object system.windows.Forms.Label
@@ -2927,7 +2968,7 @@ if ($isCLI) {
             $btnExpert = New-Object System.Windows.Forms.Button
             $btnExpert.Width = 100
             $btnExpert.Height = 30
-            $btnExpert.Location = New-Object System.Drawing.Point(575,385)
+            $btnExpert.Location = New-Object System.Drawing.Point(725,385)
             $btnExpert.Text = "Expert Mode"
             $btnExpert.Visible = $true
             $btnExpert.Add_Click({
@@ -3101,12 +3142,25 @@ $createHostCode = {
 
         write-host "Creation of VM initiated"  -foreground green
         logger "Creation of VM initiated" -logOnly
-    if ($hostCluster -eq "") {
-	    New-VM -Name $VM_Name -numcpu $numcpu -corespersocket $numcpu -MemoryGB $GBram -DiskGB $GBguestdisks[0] -DiskStorageFormat $Typeguestdisk -Datastore $ds -NetworkName $netName| Out-Null
-    } else {
-        $hostCluster = Get-Cluster $hostCluster
-        New-VM -Name $VM_Name -numcpu $numcpu -corespersocket $numcpu -MemoryGB $GBram -DiskGB $GBguestdisks[0] -DiskStorageFormat $Typeguestdisk -Datastore $ds -ResourcePool $hostCluster -NetworkName $netName -ErrorAction Stop | Out-Null
-    }
+        try {
+            write-host "Creation of VM initiated"  -foreground green
+            logger "Creation of VM initiated" -logOnly
+        if ($hostCluster -eq $null -Or $hostCluster -eq "") {
+            $vmHost = Get-VMHost
+               New-VM -Name $VM_Name -VMHost $vmHost -numcpu $numcpu -corespersocket $numcpu -MemoryGB $GBram -DiskGB $($GBguestdisks[0]) -DiskStorageFormat $Typeguestdisk -Datastore $ds -NetworkName $netName| Out-Null
+        } else {
+            $hostCluster = Get-Cluster $hostCluster
+            New-VM -Name $VM_Name -numcpu $numcpu -corespersocket $numcpu -MemoryGB $GBram -DiskGB $($GBguestdisks[0]) -DiskStorageFormat $Typeguestdisk -Datastore $ds -ResourcePool $hostCluster -NetworkName $netName -ErrorAction Stop | Out-Null
+        }
+    
+      }
+    
+      catch [Exception]{
+        $exception = $_.Exception
+        Write-Host "Could not create VM $VM_Name $exception" -ForegroundColor Red
+        logger "Could not create VM $VM_Name $exception"
+        exit
+      }
 
 	write-host "Removing NIC"  -foreground green
 	logger "Removing NIC" -logOnly
@@ -3135,7 +3189,7 @@ $createHostCode = {
 	logger "Creating Disks" -logOnly
     # Add remainder of disks from JSON
 	for ($i=1; $i -le ($GBguestdisks.Count-1); $i++) {
-		New-HardDisk -CapacityGB $GBguestdisks[$i] -VM $VM_name -Datastore $ds -ThinProvisioned:$true -Confirm:$false | Out-Null
+		New-HardDisk -CapacityGB $($GBguestdisks[$i]) -VM $VM_name -Datastore $ds -ThinProvisioned:$true -Confirm:$false | Out-Null
         Get-VM $VM_Name | New-AdvancedSetting -Name "scsi0:$($i).virtualSSD" -Value TRUE -Confirm:$false
 	}
 	 
@@ -3266,7 +3320,7 @@ if ($userOptions.nestedVMPrefix.Length -gt 0) {
     $userOptions.nestedVMPrefix = $userOptions.nestedVMPrefix + "-"
 } 
 
-logger "----------------------Inputs------------------4.4.1--"
+logger "----------------------Inputs------------------4.5--"
 foreach ($uO in $global:userOptions.GetEnumerator()){logger $($uO.Key + "`t`t" + $uO.Value)}
 logger "--------------------END-Inputs--------------------" 
 
@@ -3281,15 +3335,16 @@ if ($global:bringUpOptions.hostSpecs) {
 
     $genvms = Get-Content -raw "$($global:scriptDir)\conf\default_mgmt_hosthw.json" | ConvertFrom-Json  
     
-    $templateHosts = $global:bringupOptions | Select -ExpandProperty hostSpecs
-    $networkInfo = $global:bringupOptions | Select -ExpandProperty networkSpecs
+    $templateHosts = $global:bringupOptions | Select-Object -ExpandProperty hostSpecs
+    $networkInfo = $global:bringupOptions | Select-Object -ExpandProperty networkSpecs
+    $hostGateway = $networkInfo | Where-Object {$_.networkType -match "Management"} | Select-Object -ExpandProperty Gateway
     
     $hostCnt = 0
     
     foreach ($templateHost in $templateHosts){
         $ipInfo = $templateHost.ipAddressPrivate
         
-            $hostsToBuild.Add($(New-Object PSObject -Property @{name="$($templateHost.hostname)";cpus="$($genvms.genVM[$($hostCnt)].cpus)";mem="$($genvms.genVM[$($hostCnt)].mem)";disks="$($genvms.genVM[$($hostCnt)].disks)";mgmtip="$($ipInfo.ipAddress)";subnetmask="$(CIDRtoSubnet $($networkInfo.subnet.Split("/")[1]))";ipgw="$($networkInfo.gateway)"}))
+            $hostsToBuild.Add($(New-Object PSObject -Property @{name="$($templateHost.hostname)";cpus="$($genvms.genVM[$($hostCnt)].cpus)";mem="$($genvms.genVM[$($hostCnt)].mem)";disks="$($genvms.genVM[$($hostCnt)].disks)";mgmtip="$($ipInfo.ipAddress)";subnetmask="$(CIDRtoSubnet $($networkInfo.subnet.Split("/")[1]))";ipgw="$($hostGateway)"}))
             $hostCnt++
     }                                                                                                                                      
 
@@ -3635,6 +3690,8 @@ $kscfg+="vim-cmd hostsvc/datastore/destroy datastore1`n"
 $kscfg+="esxcli network firewall ruleset set --ruleset-id=ntpClient -e true`n"
 $kscfg+="esxcli system ntp set -e yes -s $ntpServer`n"
 $kscfg+="esxcli system ntp config get >> /var/log/vlccheck.txt`n"
+$kscfg+="esxcfg-advcfg -s 0 /Net/FollowHardwareMac`n"
+
 $kscfg+="/sbin/chkconfig ntpd on`n"
 $kscfg+="reboot -d 1`n"
 	
@@ -3721,7 +3778,6 @@ If ([bool]$userOptions.bringupAfterBuild) {
 
     $x=0
     logger "Waiting for bringup to start"
-    $global:skipSSLFlag = ""
     if ($global:psVer -lt 7) {
 
     #Ignore Self Signed Cert code for Powershell 5/6 - Thanks x0n - https://stackoverflow.com/users/6920/x0n
@@ -3754,7 +3810,7 @@ public static class Dummy {
     $success=$false
     do {
         try {
-            $bringupAbout = Invoke-RestMethod https://$netCBIPaddress/bringup/about
+            $bringupAbout = Invoke-RestMethod https://$netCBIPaddress/bringup/about @global:skipSSLFlag
             $success=$true
             write-host "Bringup online"
         } catch { 
@@ -3874,7 +3930,7 @@ public static class Dummy {
     $domainManagercfg+="echo vc7.deployment.option:tiny`n"
     $domainManagercfg+=")>>/etc/vmware/vcf/domainmanager/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/lcm.core.manifest.poll.interval=300000/lcm.core.manifest.poll.interval=120000/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
-    $domainManagercfg += "sed -i 's/vrslcm.install.base.version=8.1.0-16776528/vrslcm.install.base.version=8.6.2-19221620/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
+    $domainManagercfg += "sed -i 's/vrslcm.install.base.version=8.1.0-16776528/vrslcm.install.base.version=8.8.2-20080494/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/vra.install.base.version=8.1.0-15986821//g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/vrops.install.base.version=8.1.1-16522874//g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/vrli.install.base.version=8.1.1-16281169//g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
@@ -3905,7 +3961,7 @@ public static class Dummy {
         try {
             logger "Connecting to Nested vCenter, please wait.." -ForegroundColor green
             #Connect to vCenter
-            $conVcenter = Connect-viserver $managementVCIP -user $ssoCredential -password $ssoAdminPassword -ErrorAction Stop | Out-Null
+            $conVcenter = Connect-viserver $managementVCIP -user $ssoCredential -password $ssoAdminPassword -ErrorAction Stop
             logger "Connected to vCenter"    
             $i=6
         } catch [Exception]{
@@ -3925,12 +3981,12 @@ public static class Dummy {
 
     Copy-VMGuestFile -Server $managementVCIP -Source "$scriptDir\$tempDir\DomainManagerConfig.bash" -Destination "/home/vcf/" -LocalToGuest -VM $sddcManagerVM -GuestUser root -GuestPassword $($userOptions.masterPassword) -Force
 
-    Invoke-VMScript -ScriptType Bash -Server $managementVCIP -GuestUser root -GuestPassword $($userOptions.masterPassword) -VM $sddcManagerVM -ScriptText "chmod 777 /home/vcf/DomainManagerConfig.bash;/home/vcf/DomainManagerConfig.bash" -RunAsync
+    Invoke-VMScript -ScriptType Bash -Server $managementVCIP -GuestUser root -GuestPassword $($userOptions.masterPassword) -VM $sddcManagerVM -ScriptText "chmod 777 /home/vcf/DomainManagerConfig.bash;/home/vcf/DomainManagerConfig.bash" #-RunAsync
 
-    do {
+    <#do {
             logger "Waiting for SDDC Manager to reset..."
             sleep 5      
-        } until(Test-NetConnection $sddcMgrIP -Port 22| ? { !$_.tcptestsucceeded } )
+        } until(Test-NetConnection $sddcMgrIP -Port 22| ? { !$_.tcptestsucceeded } )#>
 
     logger "Removing Memory reservation on NSX Manager"
     Get-VM -Server $conVcenter -Name $nsxMgtVM | Get-VMResourceConfiguration |Set-VMResourceConfiguration -MemReservationGB 0
@@ -3965,8 +4021,6 @@ public static class Dummy {
 }
 #endregion Bringup
 
-Disconnect-VIServer * -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
-
 #region Edge and AVN Deployment
 
 
@@ -3992,6 +4046,19 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
         } else {
             sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId $($edgeClusterCreateTask.id)
         }
+        logger "Removing memory and CPU reservations from Edge VMs"
+        $edgeNodeNames = $($edgeClusterPayload.edgeNodeSpecs | Select -ExpandProperty edgeNodeName)
+        try {
+            connect-viserver -server $managementVCIP -user $ssoCredential -password $ssoAdminPassword
+        } catch {
+            logger "Unable to connect to vCenter in Workload Management deploy, skipping enablement"
+            $failOut = $true
+            break
+        }
+        foreach($edgeNodeName in $edgeNodeNames) {
+            Get-VM -Name $($edgeNodeName.Split(".")[0]) | Get-VMResourceConfiguration | Set-VMResourceConfiguration -MemReservationGB 0 -CpuSharesLevel "Normal"
+        }
+        Disconnect-VIServer * -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
     }
     if ([bool]$global:userOptions.deployWldMgmt) {
         $failOut = $false
@@ -4220,7 +4287,9 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
 
 $totalTime.Stop()
 logger "Cleaning up Temp Directory"
-Remove-Item "$scriptDir\$tempDir" -Recurse -Force -Confirm:$False -ErrorAction:Stop
+if (!$debugMode) {
+    Remove-Item "$scriptDir\$tempDir" -Recurse -Force -Confirm:$False -ErrorAction:Stop
+}
 logger "Total RunTime: $($totalTime.Elapsed)"
 if ($global:Ways -notmatch "expansion") {
     logger "Please open a browser and navigate to https://$($global:bringUpOptions.sddcManagerSpec.hostname).$($global:userOptions.vcfDomainName)"
