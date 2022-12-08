@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VCF HH Version - Lab Constructor beta v4.5 10/24/2022
+# VLC - Lab Constructor beta v4.5.2 12/8/2022
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenika@vmware.com;gojose@vmware.com
 #
@@ -891,6 +891,8 @@ Function cbConfigurator
     $reverseDNS = "$($revArray[($revArray.Count-1)..0] -join '.').in-addr.arpa."
     $vsanNetCIDR = $($bringupObject.networkSpecs| where { $_.networkType -match "VSAN" } | Select -ExpandProperty subnet).split("/")[1]
 	$vsanNetGateway = $($bringupObject.networkSpecs| where { $_.networkType -match "VSAN" } | Select -ExpandProperty gateway)
+    $vmotionNetCIDR = $($bringupObject.networkSpecs| where { $_.networkType -match "VMOTION" } | Select -ExpandProperty subnet).split("/")[1]
+	$vmotionNetGateway = $($bringupObject.networkSpecs| where { $_.networkType -match "VMOTION" } | Select -ExpandProperty gateway)
 #AVN Related CloudBuilder Config
     $avnSpec = Get-Content "$scriptDir\automated_api_jsons\NSX_AVN_API.json" | ConvertFrom-JSON
     $avnNetSpecs = $avnSpec | Select -ExpandProperty avns
@@ -956,6 +958,7 @@ Function cbConfigurator
         $replaceNet +="echo Address=$CloudBuilderIP/$CloudBuilderCIDR`n"
         $replaceNet +="echo Address=$DhcpGateway/$DhcpSubnetCIDR`n"
         $replaceNet +="echo Address=$vsanNetGateway/$vsanNetCIDR`n"
+        $replaceNet +="echo Address=$vmotionNetGateway/$vmotionNetCIDR`n"
         $replaceNet +="echo Gateway=$CloudBuilderGateway`n"
         $replaceNet +=")>/etc/systemd/network/eth0.$($mgmtVlanId).network`n"
     } else {
