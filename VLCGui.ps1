@@ -1,7 +1,7 @@
 ﻿###################################################################
 # VLC - Lab Constructor beta v4.5.2 12/9/2022
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
-# QA: stephenst@vmware.com;acarnie@vmware.com;jsenika@vmware.com;gojose@vmware.com
+# QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com
 #
 # PLEASE See the included install guide PDF file for more info.
 ###################################################################
