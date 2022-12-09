@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v4.5.2 12/8/2022
+# VLC - Lab Constructor beta v4.5.2 12/9/2022
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenika@vmware.com;gojose@vmware.com
 #
@@ -2021,7 +2021,7 @@ if ($isCLI) {
     $global:userOptions += @{"Typeguestdisk"="Thin"}
     $global:userOptions += @{"cbName"="CB-01a"}
     $global:Ways = "internalsvcs"
-    foreach($ic in $iniContent) {$global:userOptions +=@{$ic.Split("=")[0]=$ic.Split("=")[1]}}
+    foreach($ic in $iniContent) {$global:userOptions +=@{$ic.Split("=")[0]=$($ic.Split("=")[1]).Trim()}}
     $global:bringUpOptions = Get-Content -Raw $($global:userOptions.VCFEMSFile)  | ConvertFrom-Json
 
 } else {
