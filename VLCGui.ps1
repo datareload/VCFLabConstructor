@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v4.5.2 12/9/2022
+# VLC - Lab Constructor beta v4.5.2 12/17/2022
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com
 #
@@ -27,7 +27,7 @@ $logPathDir = New-Item -ItemType Directory -Path "$scriptDir\Logs" -Force
 $logfile = "$logPathDir\VLC-Log-_$(get-date -format `"yyyymmdd_hhmmss`").txt"
 $tempDir = "Temp-$(Get-Date -Format yyyyMMddHHMMss)"
 
-$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v4.5 - Process Window'
+$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v4.5.2 - Process Window'
 $welcomeText =@"
 Welcome to:
 __     ______ _____ _          _      ____                _                   _             
@@ -1263,7 +1263,7 @@ Function cbConfigurator
     $replaceDNS +="/sbin/chkconfig vaos off`n"
     $replaceDNS +="rm /opt/vmware/etc/init.d/vamitty.conf`n"
     $replaceDNS +="rm -rf /usr/lib/systemd/system/getty@tty1.service.d`n"
-    $replaceDNS +="echo -e 'Cloudbuilder customized by \e[37;44mVLC 4.5\e[0m | \e[30;102mMgmt IP: $CloudBuilderIP\e[0m' >> /etc/issue`n"
+    $replaceDNS +="echo -e 'Cloudbuilder customized by \e[37;44mVLC 4.5.2\e[0m | \e[30;102mMgmt IP: $CloudBuilderIP\e[0m' >> /etc/issue`n"
     $replaceDNS +="shutdown -r`n"
     $replaceDNS +="END`n"
 
@@ -2112,7 +2112,7 @@ if ($isCLI) {
 "@
 #region formControls
             $frmVCFLCMain = New-Object system.Windows.Forms.Form
-            $frmVCFLCMain.Text = "VCF Lab Constructor beta 4.5"
+            $frmVCFLCMain.Text = "VCF Lab Constructor beta 4.5.2"
             $frmVCFLCMain.TopMost = $true
             $frmVCFLCMain.Width = 850
             $frmVCFLCMain.Height = 450
@@ -3323,7 +3323,7 @@ if ($userOptions.nestedVMPrefix.Length -gt 0) {
     $userOptions.nestedVMPrefix = $userOptions.nestedVMPrefix + "-"
 } 
 
-logger "----------------------Inputs------------------4.5--"
+logger "----------------------Inputs------------------4.5.2--"
 foreach ($uO in $global:userOptions.GetEnumerator()){logger $($uO.Key + "`t`t" + $uO.Value)}
 logger "--------------------END-Inputs--------------------" 
 
@@ -3670,9 +3670,15 @@ if($($userOptions.mgmtNetVlan) -eq 0) {
     $kscfg+="esxcli network vswitch standard portgroup set --vlan-id=$($userOptions.mgmtNetVlan) --portgroup-name `"VM Network`"`n"
     $kscfg+="esxcli network vswitch standard portgroup set --vlan-id=$($userOptions.mgmtNetVlan) --portgroup-name `"Management Network`"`n"
 }
-$kscfg+="esxcli network vswitch standard set -v vSwitch0 -m 9000`n"
-$kscfg+="esxcli network ip interface set -i vmk0 -m 9000`n"
-$kscfg+="esxcli system hostname set --fqdn=`${VM_NAME}`n"
+$kscfg+="esxcli network vswitch standard set -v vSwitch0 -m 1500`n"
+$kscfg+="GETINT=`$(esxcli network ip interface ipv4 address list | tail -1)`n"
+$kscfg+="IPADDR=`$(echo `"`${GETINT}`" | awk '{print `$2}')`n"
+$kscfg+="SUBNET=`$(echo `"`${GETINT}`" | awk '{print `$3}')`n"
+$kscfg+="IPGW=`$(echo `"`${GETINT}`" | awk '{print `$6}')`n"
+$kscfg+="esxcfg-vmknic --del --portgroup `"Management Network`"`n"
+$kscfg+="esxcfg-vmknic --add --portgroup `"Management Network`" --ip `${IPADDR} --netmask `${SUBNET} --mtu 1500`n"
+$kscfg+="esxcfg-route -a default `${IPGW}`n"
+#$kscfg+="esxcli system hostname set --fqdn=`$(echo hostname)`n"
 $kscfg+="# Setup VSAN`n"
 $kscfg+="esxcli system settings advanced set -o /VMFS3/HardwareAcceleratedLocking -i 1`n" 
 $kscfg+="esxcli system settings advanced set -o /LSOM/VSANDeviceMonitoring -i 0`n"
@@ -3697,7 +3703,7 @@ $kscfg+="esxcfg-advcfg -s 0 /Net/FollowHardwareMac`n"
 
 $kscfg+="/sbin/chkconfig ntpd on`n"
 $kscfg+="reboot -d 1`n"
-	
+
 byteWriter $kscfg "ISO\VLC.CFG"
 
 $isoExe = "$scriptDir\bin\mkisofs.exe"
