@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v4.5.2 12/17/2022
+# VLC - Lab Constructor beta v4.5.2 12/19/2022
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com
 #
@@ -23,9 +23,10 @@ $global:validationSuccess = $false
 $global:Ways = ""
 $global:psVer = ""
 $global:skipSSLFlag = ""
+$global:dateFormat = "yyyyMMdd_HHmmss"
 $logPathDir = New-Item -ItemType Directory -Path "$scriptDir\Logs" -Force
-$logfile = "$logPathDir\VLC-Log-_$(get-date -format `"yyyymmdd_hhmmss`").txt"
-$tempDir = "Temp-$(Get-Date -Format yyyyMMddHHMMss)"
+$logfile = "$logPathDir\VLC-Log-$(get-date -format $global:dateFormat).txt"
+$tempDir = "Temp-$(Get-Date -Format $global:dateFormat)"
 
 $host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v4.5.2 - Process Window'
 $welcomeText =@"
@@ -731,7 +732,9 @@ Function Get-VIInfo($vmHost, $vmUser, $vmPassword)
                     }
                 }
                 ForEach ($item in $vmNetworks) {
-   
+                    if ($($item.ExtensionData.Config.BackingType -match "nsx")) {
+                        $listNetName.Items.Add($item.Name) 
+                    } else {
                         if ($item.key -like "dvportgroup-*") {
                             $isSecSet = $item.ExtensionData.Config.DefaultPortConfig.SecurityPolicy
                             If ($isSecSet.AllowPromiscuous.Value -and $isSecSet.ForgedTransmits.Value -and $isSecSet.MacChanges.Value){                 
@@ -747,6 +750,7 @@ Function Get-VIInfo($vmHost, $vmUser, $vmPassword)
                                 logger "$($item.Name) on $($item.VirtualSwitch) security settings are not valid for VLC!"
                             }       
                         }
+                    }
                 }
 
             }
@@ -3102,7 +3106,7 @@ $createHostCode = {
 	$GBguestdisks=$vmToGen.disks.split(',')
 	$mgmtIP=$vmToGen.mgmtIP
 
-    $logfile = "$logPath\$VM_Name-VLC-Log-_$(get-date -format `"yyyymmdd_hhmmss`").txt"
+    $logfile = "$logPath\$VM_Name-VLC-Log-$(get-date -format $global:dateFormat).txt"
 
     Function logger($strMessage, [switch]$logOnly)
     {
@@ -3403,7 +3407,7 @@ If (!$chkHostOnly.Checked) {
 		    "--prop:guestinfo.ADMIN_USERNAME=`"admin`""
 		    "--prop:guestinfo.ADMIN_PASSWORD=`"$cbPassword`""
 		    "--X:logLevel=verbose"
-		    "--X:logFile=`"$scriptDir\Logs\CBImport-$(get-date -format "yyyymmdd_hhmmss").txt`""
+		    "--X:logFile=`"$scriptDir\Logs\CBImport-$(get-date -format $global:dateFormat).txt`""
 		    "--powerOn"
 		    "`"$cbISOLoc`""
         )
@@ -3708,7 +3712,7 @@ byteWriter $kscfg "ISO\VLC.CFG"
 
 $isoExe = "$scriptDir\bin\mkisofs.exe"
 $scriptDirUnix = $scriptDir.Replace("\","/")
-$currIso = "$(get-date -Format yyyyMMddHHmmss)-VLC_vsphere.iso"
+$currIso = "$(get-date -Format $global:dateFormat)-VLC_vsphere.iso"
 $isoExeArg = "-relaxed-filenames -J -o '$scriptDir\$tempDir\$currIso' -b ISOLINUX.BIN -c BOOT.CAT -no-emul-boot -boot-load-size 4 -boot-info-table -ldots '$scriptDirUnix/$tempDir/ISO'"
 
 Invoke-Expression -command "& '$isoExe' $isoExeArg" | out-null
@@ -4047,7 +4051,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
         logger "Adding Cluster ID: $sddcClusterId "
         $edgeClusterPayload.edgeNodeSpecs | ForEach-Object {$_.clusterID = $sddcClusterId}
         logger "Calling Edge Cluster creation API - This takes ~40 minutes, you should see tasks here, and in SDDC Manager"
-        $($edgeClusterPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\EdgeClusterPayload-$(get-date -Format MMddyy-hhmmss).json
+        $($edgeClusterPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\EdgeClusterPayload-$(get-date -Format $global:dateFormat).json
         $edgeClusterCreateTask = $(sddcCreateEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -payload $($edgeClusterPayload | ConvertTo-JSON -Depth 10) -entityType "edge-clusters")
         if ([string]::IsNullOrEmpty($edgeClusterCreateTask)) {
             Logger "Unable to obtain Task ID for this operation, please check the VLC Logs and Log directory (inspect generated JSON) and domainmanager logs for more info."
@@ -4143,7 +4147,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
             $tzPayload.master_storage_policy = $tzStoragePolicyID
             $tzPayload.default_kubernetes_service_content_library = $($tzContentLibrary.Id)
             logger "Convert customized Workload Management config to JSON"
-            $($tzPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\WLDMgmtPayload-$(get-date -Format MMddyy-hhmmss).json
+            $($tzPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\WLDMgmtPayload-$(get-date -Format $global:dateFormat).json
             try {
                 $tzVcToken = vcAuthToken -vcServer $managementVCIP -vcCreds $vcCreds
                 logger "POSTing Workload Management API - This takes ~45 minutes"
@@ -4199,7 +4203,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
         logger "Adding Edge Cluster ID: $edgeClusterId"
         $avnPayload.edgeClusterId = $edgeClusterId
         logger "Calling AVN creation API - this takes < 5 minutes"
-        $($avnPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\AVNPayload-$(get-date -Format MMddyy-hhmmss).json
+        $($avnPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\AVNPayload-$(get-date -Format $global:dateFormat).json
         $avnCreateTask = $(sddcCreateEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -payload $($avnPayload | ConvertTo-JSON -Depth 10)  -entityType "avns")
         if ([string]::IsNullOrEmpty($avnCreateTask)) {
             Logger "Unable to obtain Task ID for this operation, please check the domainmanager log for more info."
@@ -4223,7 +4227,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
         $bulkHostPayload | Where-Object { $_.fqdn } | Add-Member -MemberType NoteProperty -name username -Value root
         $bulkHostPayload | Where-Object { $_.fqdn } | Add-Member -MemberType NoteProperty -name password -Value $global:userOptions.masterPassword
         logger "Calling Host Commission API - this takes < 15 minutes"
-        $($bulkHostPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\bulkHostPayload-$(get-date -Format MMddyy-hhmmss).json
+        $($bulkHostPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\bulkHostPayload-$(get-date -Format $global:dateFormat).json
         $commissonHostsTask = $(sddcCreateEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -payload $($bulkHostPayload | ConvertTo-JSON -Depth 10)  -entityType "hosts")
         if ([string]::IsNullOrEmpty($commissonHostsTask)) {
         Logger "Unable to obtain Task ID for this operation, please check the domainmanager log for more info."
@@ -4279,7 +4283,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                 $wldDomainPayload | Select -ExpandProperty computeSpec | Select -ExpandProperty clusterSpecs | Select -ExpandProperty networkSpec | Select -ExpandProperty nsxClusterSpec | Select -ExpandProperty nsxTClusterSpec | foreach { $_.geneveVlanId = ($global:bringUpOptions.nsxtSpec.transPortVlanId) }
                 logger "Creating WLD"
                 logger "Calling Domain Creation API - this takes ~ 45 minutes"
-                $($wldDomainPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\wldDomainPayload-$(get-date -Format MMddyy-hhmmss).json
+                $($wldDomainPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\wldDomainPayload-$(get-date -Format $global:dateFormat).json
                 $wldDomainCreateTask = $(sddcCreateEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -payload $($wldDomainPayload | ConvertTo-JSON -Depth 20)  -entityType "domains")
                 if ([string]::IsNullOrEmpty($wldDomainCreateTask)) {
                 Logger "Unable to obtain Task ID for this operation, please check the domainmanager log for more info."
