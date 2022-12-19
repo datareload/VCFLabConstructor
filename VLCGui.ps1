@@ -1113,7 +1113,7 @@ Function cbConfigurator
     $replaceNet +="iptables -P OUTPUT ACCEPT`n"
     $replaceNet +="iptables -P INPUT ACCEPT`n"
     $replaceNet +="iptables -P FORWARD ACCEPT`n"
-    $replaceNet +="iptables -P POSTROUTING ACCEPT`n"
+    $replaceNet +="iptables -t nat -P POSTROUTING ACCEPT`n"
     $replaceNet +="iptables -t nat -F`n"
     $replaceNet +="iptables -t mangle -F`n"
     $replaceNet +="iptables -F`n"
@@ -1263,10 +1263,10 @@ Function cbConfigurator
     $replaceDNS +="systemctl disable sendmail`n"
     $replaceDNS +="systemctl mask vami-sfcb`n"
 #disable VAMI to stop errors on console
-    $replaceDNS +="mv /usr/lib/systemd/system/getty@tty1.service /getty@tty1.service.vamidisabled`n"
+    #$replaceDNS +="mv /usr/lib/systemd/system/getty@tty1.service /getty@tty1.service.vamidisabled`n"
     $replaceDNS +="/sbin/chkconfig vaos off`n"
     $replaceDNS +="rm /opt/vmware/etc/init.d/vamitty.conf`n"
-    $replaceDNS +="rm -rf /usr/lib/systemd/system/getty@tty1.service.d`n"
+    #$replaceDNS +="rm -rf /usr/lib/systemd/system/getty@tty1.service.d`n"
     $replaceDNS +="echo -e 'Cloudbuilder customized by \e[37;44mVLC 4.5.2\e[0m | \e[30;102mMgmt IP: $CloudBuilderIP\e[0m' >> /etc/issue`n"
     $replaceDNS +="shutdown -r`n"
     $replaceDNS +="END`n"
@@ -1295,7 +1295,7 @@ Function cbConfigurator
     do {
           $CBOnline = Get-VM -Name $CBName
 	      logger "Waiting for CloudBuilder VMTools to be started"
-	      sleep 30  
+	      sleep 60  
         } until($CBOnline.ExtensionData.Guest.ToolsRunningStatus -eq "guestToolsRunning")   
 
     logger "CloudBuilder online!"
@@ -3091,7 +3091,7 @@ if ($isCLI) {
 # Host Creation Scripblock
 $createHostCode = {
 
-	param($vmToGen, $userOptions, $logpath)
+	param($vmToGen, $userOptions, $logpath, $dateFormat)
 
     # Set props from UI	
 	$esxhost=$userOptions.esxhost
@@ -3113,7 +3113,7 @@ $createHostCode = {
 	$GBguestdisks=$vmToGen.disks.split(',')
 	$mgmtIP=$vmToGen.mgmtIP
 
-    $logfile = "$logPath\$VM_Name-VLC-Log-$(get-date -format $global:dateFormat).txt"
+    $logfile = "$logPath\$VM_Name-VLC-Log-$(get-date -format $dateFormat).txt"
 
     Function logger($strMessage, [switch]$logOnly)
     {
@@ -3453,7 +3453,7 @@ If (!$chkHostOnly.Checked) {
     do {
           $CBOnline = Get-VM -Name $cbName
 	      logger "Waiting for CloudBuilder to be available..."
-	      sleep 30  
+	      sleep 60  
         } until($CBOnline.ExtensionData.Guest.ToolsRunningStatus -eq "guestToolsRunning")   
 
     logger "CloudBuilder online!"
@@ -3554,7 +3554,7 @@ $hostJobs=@()
 ForEach ($hostVM in $hostsToBuild) {
 
 	$jobName=$hostVM.name
-	$hostJobs += Start-Job -Name $jobName -ArgumentList $hostVM,$userOptions,$logPathDir -ScriptBlock $createHostCode
+	$hostJobs += Start-Job -Name $jobName -ArgumentList $hostVM,$userOptions,$logPathDir,$global:dateFormat -ScriptBlock $createHostCode
 	logger "Creating host $($hostVM.name)" "-log"
 
 }
