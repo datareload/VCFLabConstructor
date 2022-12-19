@@ -2020,14 +2020,21 @@ if ($isCLI) {
     }
 
     $iniContent = Get-Content $iniConfigFile
-    $global:userOptions += @{"internalSvcs" = 1}
+    $global:userOptions += @{"internalSvcs" = "True"}
     $global:userOptions += @{"guestOS" = "vmkernel65guest"}
     $global:userOptions += @{"Typeguestdisk"="Thin"}
     $global:userOptions += @{"cbName"="CB-01a"}
     $global:Ways = "internalsvcs"
-    foreach($ic in $iniContent) {$global:userOptions +=@{$ic.Split("=")[0]=$($ic.Split("=")[1]).Trim()}}
+    foreach($ic in $iniContent) {$global:userOptions +=@{$ic.Split("=")[0]=$ic.Split("=")[1]}}
     $global:bringUpOptions = Get-Content -Raw $($global:userOptions.VCFEMSFile)  | ConvertFrom-Json
-
+    $global:userOptions.chkInternal = [System.Convert]::ToBoolean($global:userOptions.chkInternal)
+    $global:userOptions.useCBIso = [System.Convert]::ToBoolean($global:userOptions.useCBIso)
+    $global:userOptions.deployWldMgmt = [System.Convert]::ToBoolean($global:userOptions.deployWldMgmt)
+    $global:userOptions.deployAVNs = [System.Convert]::ToBoolean($global:userOptions.deployAVNs)
+    $global:userOptions.internalSvcs = [System.Convert]::ToBoolean($global:userOptions.internalSvcs)
+    $global:userOptions.deployEdgeCluster = [System.Convert]::ToBoolean($global:userOptions.deployEdgeCluster)
+    $global:userOptions.bringupAfterBuild = [System.Convert]::ToBoolean($global:userOptions.bringupAfterBuild)
+    
 } else {
 
 #endregion CLI Mode
