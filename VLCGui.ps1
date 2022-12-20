@@ -200,7 +200,7 @@ Function SetFormValues ($formContent)
         $txtDNS.Text = $formContent.dnsServer
         $txtlabGateway.Text = $formContent.labGateway
         $txtLabDNS.Text = $formContent.labDNS
-        $txtvSphereLoc.Text = $formContent.vSphereLoc
+        $txtvSphereISOLoc.Text = $formContent.vSphereISOLoc
         $chkUseCBIso.Checked = $formContent.UseCBIso
         $txtvmPrefix.Text = $formContent.nestedVMPrefix
 	    $txtMasterPass.Text = $formContent.masterPassword
@@ -234,7 +234,7 @@ Function GetFormValues ($formContent)
         $formContent.add("mgmtNetCidr",$($($txtMgmtNet.Text).Split("/"))[1])
 	    $formContent.add("CBISOLoc",$txtCBLoc.Text)
 	    $formContent.add("cbIPAddress",$txtCBIP.Text)
-        $formContent.add("vSphereLoc",$txtvSphereLoc.Text)
+        $formContent.add("vSphereISOLoc",$txtvSphereISOLoc.Text)
         $formContent.add("labGateway",$txtLabGateway.Text)
         $formContent.add("labDNS",$txtLabDNS.Text)
         $formContent.add("useCBIso",$chkUseCBIso.Checked)
@@ -269,7 +269,7 @@ Function ResetLabels {
     $lblCluster.BackColor = [System.Drawing.Color]::"DarkGray"
     $lblNetName.BackColor = [System.Drawing.Color]::"DarkGray"
     $lblDatastore.BackColor = [System.Drawing.Color]::"DarkGray"
-    $lblvSphereLoc.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblvSphereISOLoc.BackColor = [System.Drawing.Color]::"DarkGray"
     $lblNestedJSON.BackColor = [System.Drawing.Color]::"DarkGray"
     $lblMasterPass.BackColor = [System.Drawing.Color]::"DarkGray"
     $lblMgmtNet.BackColor = [System.Drawing.Color]::"DarkGray"
@@ -337,12 +337,12 @@ Function ValidateFormValues
 				$lblDatastore.BackColor = [System.Drawing.Color]::"Green"
 			}
         if(-not $chkUseCBIso.Checked) {
-            if(-not $txtvSphereLoc.Text -or -not (Test-Path -Path $txtvSphereLoc.Text))
+            if(-not $txtvSphereISOLoc.Text -or -not (Test-Path -Path $txtvSphereISOLoc.Text))
 			    {
-				    $lblvSphereLoc.BackColor = [System.Drawing.Color]::"Red"
+				    $lblvSphereISOLoc.BackColor = [System.Drawing.Color]::"Red"
 				    $validEntries = $false
 			    } else {
-                    $lblvSphereLoc.BackColor = [System.Drawing.Color]::"Green"
+                    $lblvSphereISOLoc.BackColor = [System.Drawing.Color]::"Green"
                 }
         }
         if($chkHostOnly.Checked) {
@@ -511,7 +511,7 @@ Function ClearFormFields
 	    $txtCBLoc.Text = ""
 	    $txtNestedJSON.Text = ""
 	    $txtMasterPass.Text = ""
-        $txtvSphereLoc.Text = ""
+        $txtvSphereISOLoc.Text = ""
         $txtvmPrefix.Text = ""
         $txtCBIP.Text = ""
         $txtDNS.Text = ""
@@ -538,7 +538,7 @@ Function LockFormFields
 	    $txtCBLoc.Enabled=$false
 	    $txtNestedJSON.Enabled=$false
 	    $txtMasterPass.Enabled=$false
-        $txtvSphereLoc.Enabled=$false
+        $txtvSphereISOLoc.Enabled=$false
         $txtvmPrefix.Enabled=$false
         $txtCBIP.Enabled=$false
         $txtDNS.Enabled=$false
@@ -565,7 +565,7 @@ Function UnLockFormFields
 	    $txtCBLoc.Enabled=$true
 	    $txtNestedJSON.Enabled=$true
 	    $txtMasterPass.Enabled=$true
-        $txtvSphereLoc.Enabled=$true
+        $txtvSphereISOLoc.Enabled=$true
         $txtLabDNS.Enabled=$true
         $txtLabGateway.Enabled=$true
         $txtvmPrefix.Enabled=$true
@@ -1431,8 +1431,8 @@ function setFormControls ($formway)
                         $txtNestedJSON.Text = "" 
 
                         $chkUseCBISO.Checked = $true
-                        $lblvSphereLoc.Enabled = $true
-                        $txtvSphereLoc.Enabled = $true
+                        $lblvSphereISOLoc.Enabled = $true
+                        $txtvSphereISOLoc.Enabled = $true
 
                         $txtMasterPass.Enabled = $false
                         $lblMasterPass.Enabled = $false
@@ -1514,8 +1514,8 @@ function setFormControls ($formway)
                         $txtNestedJSON.Text = ""
 
                         $chkUseCBISO.Checked = $true
-                        $lblvSphereLoc.Enabled = $false
-                        $txtvSphereLoc.Enabled = $false
+                        $lblvSphereISOLoc.Enabled = $false
+                        $txtvSphereISOLoc.Enabled = $false
 
                         $txtMasterPass.Enabled = $false
                         $lblMasterPass.Enabled = $false
@@ -1600,8 +1600,8 @@ function setFormControls ($formway)
 
                         $chkUseCBISO.Enabled = $false
                         $chkUseCBISO.Checked = $false
-                        $lblvSphereLoc.Enabled = $true
-                        $txtvSphereLoc.Enabled = $true
+                        $lblvSphereISOLoc.Enabled = $true
+                        $txtvSphereISOLoc.Enabled = $true
 
                         $txtMasterPass.Enabled = $true
                         $lblMasterPass.Enabled = $true
@@ -2061,7 +2061,7 @@ if ($isCLI) {
             "txtNestedJSON" {$tip = "Click to select the path where the JSON file for creating additional nested hosts resides"}
             "txtCBLoc" {$tip = "Click to select the path where the CloudBuilder OVA resides"}
             "txtCBIP" {$tip = "Enter the IP address for CloudBuilder, this must be an IP address on the `nmanagement network entered above"}
-            "txtvSphereLoc" {$tip = "Click to select the path where the vSphere ISO resides"}
+            "txtvSphereISOLoc" {$tip = "Click to select the path where the vSphere ISO resides"}
             "txtVMPrefix" {$tip = "If desired, enter a prefix for the created nested hosts and CloudBuilder VMs "}
             "txtBringupFile" {$tip = "Click to select the path where the VCF-EMS JSON file resides"}
             "txtNTP" {$tip = "Enter the IP addres of your NTP server"}
@@ -2299,19 +2299,19 @@ if ($isCLI) {
             $txtNestedJSON.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
             $frmVCFLCMain.controls.Add($txtNestedJSON)
         
-            $txtvSphereLoc = New-Object system.windows.Forms.TextBox
-            $txtvSphereLoc.Name = "txtvSphereLoc"
-            $txtvSphereLoc.Width = 150
-            $txtvSphereLoc.Height = 20
-            $txtvSphereLoc.Add_Click({
+            $txtvSphereISOLoc = New-Object system.windows.Forms.TextBox
+            $txtvSphereISOLoc.Name = "txtvSphereISOLoc"
+            $txtvSphereISOLoc.Width = 150
+            $txtvSphereISOLoc.Height = 20
+            $txtvSphereISOLoc.Add_Click({
 
-                $txtvSphereLoc.Text = Get-FileName "$scriptDir" "ISO (*.iso)| *.iso" "load"
-                #$txtvSphereLoc.Text = $vSphereISOLoc 
+                $txtvSphereISOLoc.Text = Get-FileName "$scriptDir" "ISO (*.iso)| *.iso" "load"
+                #$txtvSphereISOLoc.Text = $vSphereISOLoc 
                             })
-            $txtvSphereLoc.Add_MouseHover($ShowTips)
-            $txtvSphereLoc.location = new-object system.drawing.point(150,177)
-            $txtvSphereLoc.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
-            $frmVCFLCMain.controls.Add($txtvSphereLoc)
+            $txtvSphereISOLoc.Add_MouseHover($ShowTips)
+            $txtvSphereISOLoc.location = new-object system.drawing.point(150,177)
+            $txtvSphereISOLoc.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
+            $frmVCFLCMain.controls.Add($txtvSphereISOLoc)
 
             $txtVMPrefix = New-Object system.windows.Forms.TextBox
             $txtVMPrefix.Name = "txtVMPrefix"
@@ -2342,12 +2342,12 @@ if ($isCLI) {
             $chkUseCBIso.Add_CheckStateChanged({
 
                 if($chkUseCBIso.Checked -eq $true) {
-                    $txtvSphereLoc.Text = ""
-                    $txtvSphereLoc.Enabled = $false
-                    $lblvSphereLoc.Enabled = $false
+                    $txtvSphereISOLoc.Text = ""
+                    $txtvSphereISOLoc.Enabled = $false
+                    $lblvSphereISOLoc.Enabled = $false
                 } else {
-                    $txtvSphereLoc.Enabled = $true
-                    $lblvSphereLoc.Enabled = $true
+                    $txtvSphereISOLoc.Enabled = $true
+                    $lblvSphereISOLoc.Enabled = $true
                 }
             })
 
@@ -2785,14 +2785,14 @@ if ($isCLI) {
             $comboBoxBuildOps.Items.add("None") 
             $frmVCFLCMain.controls.Add($comboBoxBuildOps)
 
-            $lblvSphereLoc = New-Object system.windows.Forms.Label
-            $lblvSphereLoc.Text = "ESXi ISO Location"
-            $lblvSphereLoc.AutoSize = $true
-            $lblvSphereLoc.Width = 25
-            $lblvSphereLoc.Height = 10
-            $lblvSphereLoc.location = new-object system.drawing.point(305,180)
-            $lblvSphereLoc.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
-            $frmVCFLCMain.controls.Add($lblvSphereLoc)
+            $lblvSphereISOLoc = New-Object system.windows.Forms.Label
+            $lblvSphereISOLoc.Text = "ESXi ISO Location"
+            $lblvSphereISOLoc.AutoSize = $true
+            $lblvSphereISOLoc.Width = 25
+            $lblvSphereISOLoc.Height = 10
+            $lblvSphereISOLoc.location = new-object system.drawing.point(305,180)
+            $lblvSphereISOLoc.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
+            $frmVCFLCMain.controls.Add($lblvSphereISOLoc)
 
             $lblVMPrefix = New-Object system.windows.Forms.Label
             $lblVMPrefix.Text = "Prefix for VMs"
@@ -3038,7 +3038,7 @@ if ($isCLI) {
                             "nsxSuperNet" = $txtNSXSuper.Text
                             "cbName" = "CB-01a"
                             "CBISOLoc" = $txtCBLoc.Text
-                            "vsphereISOLoc" = $txtvSphereLoc.Text
+                            "vsphereISOLoc" = $txtvSphereISOLoc.Text
                             "vcfEMSFile" = $txtBringupFile.Text
                             "useCBIso" = $chkUseCBIso.Checked
                             "internalSvcs" = $chkInternalSvcs.Checked
