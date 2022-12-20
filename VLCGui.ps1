@@ -3904,7 +3904,7 @@ public static class Dummy {
                 logger "SSH or console to $netCBIPaddress username admin, password $cbPassword"
                 logger "Log is located at /var/log/vmware/vcf/bringup/vcf-bringup-debug.log"
                 logger "You may be able to fix the issue and retry without starting over, see VLC-Slack #vlc-support to ask questions"
-                Read-Host "Your VCF SDDC setup failed after 7 retries. Press enter to continue!"
+                Read-Host "Your VCF SDDC setup failed after 5 retries. Press enter to continue!"
                 EXIT
 
             } else {
