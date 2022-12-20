@@ -3154,8 +3154,6 @@ $createHostCode = {
 
 	# Create VM
 
-        write-host "Creation of VM initiated"  -foreground green
-        logger "Creation of VM initiated" -logOnly
         try {
             write-host "Creation of VM initiated"  -foreground green
             logger "Creation of VM initiated" -logOnly
@@ -3544,7 +3542,7 @@ Set-ItemProperty $scriptDir\$tempDir\ISO\ISOLINUX.CFG -name IsReadOnly -value $f
 Set-ItemProperty $scriptDir\$tempDir\ISO\BOOT.CFG -name IsReadOnly -value $false
 
 # Create Hosts
-logger "Starting creation of $numHosts found in JSON and template."
+logger "Starting creation of $numHosts hosts found in JSON and template."
 
 # Init Jobs container
 $hostJobs=@()
@@ -3711,8 +3709,11 @@ $kscfg+="esxcli network firewall ruleset set --ruleset-id=ntpClient -e true`n"
 $kscfg+="esxcli system ntp set -e yes -s $ntpServer`n"
 $kscfg+="esxcli system ntp config get >> /var/log/vlccheck.txt`n"
 $kscfg+="esxcfg-advcfg -s 0 /Net/FollowHardwareMac`n"
-
 $kscfg+="/sbin/chkconfig ntpd on`n"
+$kscfg+="(`n"
+$kscfg+="echo `"`"`n"
+$kscfg+="echo export PS1=\`\\033[01\;32m[\`${LOGNAME}@\\h:\\033[01\;34m\\w\\033[01\;32m]\\033[00m \``n"
+$kscfg+=")>> /etc/profile.local`n"
 $kscfg+="reboot -d 1`n"
 
 byteWriter $kscfg "ISO\VLC.CFG"
@@ -3898,7 +3899,7 @@ public static class Dummy {
 
             if ($retries -gt 5) {
 
-                logger "Failed Bringup on this task: $($currTask.name) after 7 retries."
+                logger "Failed Bringup on this task: $($currTask.name) after 5 retries."
                 logger "See the log on CloudBuilder for more information"
                 logger "SSH or console to $netCBIPaddress username admin, password $cbPassword"
                 logger "Log is located at /var/log/vmware/vcf/bringup/vcf-bringup-debug.log"
