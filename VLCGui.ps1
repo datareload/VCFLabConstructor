@@ -3712,7 +3712,7 @@ $kscfg+="esxcfg-advcfg -s 0 /Net/FollowHardwareMac`n"
 $kscfg+="/sbin/chkconfig ntpd on`n"
 $kscfg+="(`n"
 $kscfg+="echo `"`"`n"
-$kscfg+="echo export PS1=\`"\\033[01\;32m[\`${LOGNAME}@\\h:\\033[01\;34m\\w\\033[01\;32m]\\033[00m`"`n"
+$kscfg+="echo export PS1=\`"\\033[01\;32m[\`${LOGNAME}@\\h:\\033[01\;34m\\w\\033[01\;32m]\\033[00m \`"`n"
 $kscfg+=")>> /etc/profile.local`n"
 $kscfg+="reboot -d 1`n"
 
