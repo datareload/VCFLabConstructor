@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v4.5.2 12/19/2022
+# VLC - Lab Constructor beta v4.5.2 12/21/2022
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com
 #
@@ -712,7 +712,7 @@ Function Get-VIInfo($vmHost, $vmUser, $vmPassword)
                             $btnConnect.Backcolor = [System.Drawing.Color]::"Yellow"
                             $btnConnect.ForeColor = [System.Drawing.Color]::"Black"
                             $btnConnect.Text = "Connect"
-                            Disconnect-VIServer * -Force:$true -Confirm:$false | Out-Null
+                            Disconnect-VIServer * -Force -Confirm:$false | Out-Null
                     } else {
                             $viValidated = $true
                     }        
@@ -771,7 +771,7 @@ Function Get-VIInfo($vmHost, $vmUser, $vmPassword)
             $btnConnect.ForeColor = [System.Drawing.Color]::"White"
             $btnConnect.Text = "Connect"       
         }
-    Disconnect-VIServer * -Confirm:$false -Force
+    Disconnect-VIServer * -Force -Confirm:$false
 }       
 function extractvSphereISO ($vSphereISOPath)
 {
@@ -3975,7 +3975,7 @@ public static class Dummy {
     $ssoAdminPassword = $($Global:bringUpOptions | Select -ExpandProperty pscSpecs | Select adminUserSsoPassword -Unique).adminUserSsoPassword
     $ssoCredential = "administrator@$ssoDomain"
 
-    Disconnect-VIServer * -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+    Disconnect-VIServer * -Force -Confirm:$false | Out-Null
 
     $i=1
     while ($i -lt 6) {
@@ -4013,7 +4013,7 @@ public static class Dummy {
     Get-VM -Server $conVcenter -Name $nsxMgtVM | Get-VMResourceConfiguration |Set-VMResourceConfiguration -MemReservationGB 0
     logger "Disabling VM Monitoring in HA and setting DRS to conservative" 
     configDrsHACluster $(Get-Cluster -Server $conVcenter -Name $mgmtClusterName)
-    Disconnect-VIServer * -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+    Disconnect-VIServer * -Force -Confirm:$false | Out-Null
 
     logger "Waiting for SDDC Manager to come online"
     do {
@@ -4079,7 +4079,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
         foreach($edgeNodeName in $edgeNodeNames) {
             Get-VM -Name $($edgeNodeName.Split(".")[0]) | Get-VMResourceConfiguration | Set-VMResourceConfiguration -MemReservationGB 0 -CpuSharesLevel "Normal"
         }
-        Disconnect-VIServer * -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+        Disconnect-VIServer * -Force -Confirm:$false | Out-Null
     }
     if ([bool]$global:userOptions.deployWldMgmt) {
         $failOut = $false
@@ -4200,7 +4200,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                 break
             }
         } while ($failOut = $false)
-        Disconnect-VIServer * -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+        Disconnect-VIServer * -Force -Confirm:$false | Out-Null
     }
     if ([bool]$global:userOptions.deployAVNs) {
         #Create AVNs on Edge Cluster
