@@ -477,6 +477,7 @@ Function ValidateFormValues
 Function connectVI ($vmHost, $vmUser, $vmPassword, $numTries)
 {
     $i=1
+    Disconnect-VIServer * -Force -Confirm:$true | Out-Null
         try {
         Write-host "Connecting to VI, please wait.." -ForegroundColor green
         logger "Connecting to VI, please wait.." -logOnly
@@ -2035,6 +2036,7 @@ if ($isCLI) {
     $global:userOptions.deployEdgeCluster = [System.Convert]::ToBoolean($global:userOptions.deployEdgeCluster)
     $global:userOptions.bringupAfterBuild = [System.Convert]::ToBoolean($global:userOptions.bringupAfterBuild)
     
+    Disconnect-VIServer * -Force -Confirm:$true | Out-Null
 } else {
 
 #endregion CLI Mode
