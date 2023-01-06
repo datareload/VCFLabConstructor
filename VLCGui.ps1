@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v4.5.2 12/21/2022
+# VLC - Lab Constructor beta v4.5.3 1/5/2023
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com
 #
@@ -28,7 +28,7 @@ $logPathDir = New-Item -ItemType Directory -Path "$scriptDir\Logs" -Force
 $logfile = "$logPathDir\VLC-Log-$(get-date -format $global:dateFormat).txt"
 $tempDir = "Temp-$(Get-Date -Format $global:dateFormat)"
 
-$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v4.5.2 - Process Window'
+$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v4.5.3 - Process Window'
 $welcomeText =@"
 Welcome to:
 __     ______ _____ _          _      ____                _                   _             
@@ -1268,7 +1268,7 @@ Function cbConfigurator
     $replaceDNS +="/sbin/chkconfig vaos off`n"
     $replaceDNS +="rm /opt/vmware/etc/init.d/vamitty.conf`n"
     #$replaceDNS +="rm -rf /usr/lib/systemd/system/getty@tty1.service.d`n"
-    $replaceDNS +="echo -e 'Cloudbuilder customized by \e[37;44mVLC 4.5.2\e[0m | \e[30;102mMgmt IP: $CloudBuilderIP\e[0m' >> /etc/issue`n"
+    $replaceDNS +="echo -e 'Cloudbuilder customized by \e[37;44mVLC 4.5.3\e[0m | \e[30;102mMgmt IP: $CloudBuilderIP\e[0m' >> /etc/issue`n"
     $replaceDNS +="shutdown -r`n"
     $replaceDNS +="END`n"
 
@@ -2125,7 +2125,7 @@ if ($isCLI) {
 "@
 #region formControls
             $frmVCFLCMain = New-Object system.Windows.Forms.Form
-            $frmVCFLCMain.Text = "VCF Lab Constructor beta 4.5.2"
+            $frmVCFLCMain.Text = "VCF Lab Constructor beta 4.5.3"
             $frmVCFLCMain.TopMost = $true
             $frmVCFLCMain.Width = 850
             $frmVCFLCMain.Height = 450
@@ -3334,7 +3334,7 @@ if ($userOptions.nestedVMPrefix.Length -gt 0) {
     $userOptions.nestedVMPrefix = $userOptions.nestedVMPrefix + "-"
 } 
 
-logger "----------------------Inputs------------------4.5.2--"
+logger "----------------------Inputs------------------4.5.3--"
 foreach ($uO in $global:userOptions.GetEnumerator()){logger $($uO.Key + "`t`t" + $uO.Value)}
 logger "--------------------END-Inputs--------------------" 
 
