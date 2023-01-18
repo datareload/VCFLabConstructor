@@ -26,4 +26,5 @@ vra01b.vcf.sddc.lab. FQDN4 10.60.0.172
 vra01c.vcf.sddc.lab. FQDN4 10.60.0.173
 kubeapi.vcf.sddc.lab. FQDN4 10.0.0.150
 mgmt-hcxm-01.vcf.sddc.lab. FQDN4 10.0.0.131
+vcg.vcf.sddc.lab. FQDN4	10.0.0.180
 
