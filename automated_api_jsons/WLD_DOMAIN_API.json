@@ -96,7 +96,7 @@
            ],
            "nsxClusterSpec": {
              "nsxTClusterSpec": {
-               "geneveVlanId": 10
+               "geneveVlanId": 0
              }
            }
          }
