@@ -17,7 +17,7 @@
     "vcenterId": "vcenter-1"
   },
   "sddcId": "mgmt-domain",
-  "esxLicense": "<INSERT LIC>",
+  "esxLicense": "<INSERT ESX LIC>",
   "taskName": "workflowconfig/workflowspec-ems.json",
   "ceipEnabled": false,
   "fipsEnabled": false,
@@ -95,12 +95,12 @@
     },
     "vip": "10.0.0.20",
     "vipFqdn": "nsx-mgmt",
-    "nsxtLicense": "<INSERT LIC>",
+    "nsxtLicense": "<INSERT NSX LIC>",
     "transportVlanId": 10
   },
   "vsanSpec": {
       "vsanName": "vsan-1",
-      "licenseFile": "<INSERT LIC>",
+      "licenseFile": "<INSERT VSAN LIC>",
       "vsanDedup": "false",
       "datastoreName": "vcf-vsan"
   },
@@ -185,7 +185,7 @@
       "vcenterIp": "10.0.0.12",
       "vcenterHostname": "vcenter-mgmt",
       "vcenterId": "vcenter-1",
-      "licenseFile": "<INSERT LIC>",
+      "licenseFile": "<INSERT VC LIC>",
       "vmSize": "tiny",
       "storageSize": "",
       "rootVcenterPassword": "VMware123!"
