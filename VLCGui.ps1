@@ -1067,6 +1067,7 @@ Function cbConfigurator
     $replaceNet +="echo [Install]`n"
     $replaceNet +="echo WantedBy=multi-user.target`n"
     $replaceNet +=")>/etc/systemd/system/dhcpd4@.service`n"
+    $replaceNet +="ln /etc/dhcp/dhcpd.conf /etc/dhcpd.conf `n"
     if($mgmtVlanId -in 1..4094) {
         $replaceNet +="systemctl enable dhcpd4\@eth0.$mgmtVlanId.service`n"
     } else {
