@@ -1,8 +1,8 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v4.5.3 2/13/2023
+# VLC - Lab Constructor beta v5 6/12/2023
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
-# QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com
-#
+# QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com;
+# wlam@vmware.com;kgleed@vmware.com;tthompson@vmware.com
 # PLEASE See the included install guide PDF file for more info.
 ###################################################################
 param (
@@ -28,7 +28,7 @@ $logPathDir = New-Item -ItemType Directory -Path "$scriptDir\Logs" -Force
 $logfile = "$logPathDir\VLC-Log-$(get-date -format $global:dateFormat).txt"
 $tempDir = "Temp-$(Get-Date -Format $global:dateFormat)"
 
-$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v4.5.3 - Process Window'
+$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v5.0 - Process Window'
 $welcomeText =@"
 Welcome to:
 __     ______ _____ _          _      ____                _                   _             
@@ -49,7 +49,7 @@ $global:psVer = $($psVersionTable.psVersion.Major)
 Write-Host "Major Powershell version is: $global:psVer"
 
 # Import PowerCLI Module
-Write-host "Checking PowerCLI 12.1 or greater installation."
+Write-host "Checking PowerCLI 13.0 or greater installation."
 $modCnt = 1
 $moduleInstalled = Get-Module -ListAvailable | Where-Object {$_.Name -like "VMware.VimAutomation.Core"} | Select-Object Version | Sort-Object -Property Version -Descending
     
@@ -57,13 +57,13 @@ foreach ($mod in $moduleInstalled) {
     write-host "Found PowerCLI version $($mod.Version.ToString()) installed."
     if ($mod) { 
         
-        if ([System.Version]$mod.Version.ToString() -ge [System.Version]"12.1") {
+        if ([System.Version]$mod.Version.ToString() -ge [System.Version]"13.0") {
             Import-Module -Name VMware.VimAutomation.Core # Latest PowerCLI
             Set-PowerCLIConfiguration -DefaultVIServerMode Multiple -InvalidCertificateAction Ignore -DisplayDeprecationWarnings:$false -Confirm:$false
             break
         } else {
             if($moduleInstalled.Count -ge $modCnt) {
-                write-host "Please update PowerCLI to 12.1 or greater you can obtain from https://www.powershellgallery.com/packages/VMware.PowerCLI" -ForegroundColor Yellow
+                write-host "Please update PowerCLI to 13.0 or greater you can obtain from https://www.powershellgallery.com/packages/VMware.PowerCLI" -ForegroundColor Yellow
                 exit
             }
             $modCnt++
@@ -92,8 +92,8 @@ foreach ($mod in $moduleInstalled) {
     }
 }
 
-#Check if OVFTool 4.3 is installed
-    write-host "Checking if VMware OVF Tool 4.3 or newer is installed."
+#Check if OVFTool 4.5 is installed
+    write-host "Checking if VMware OVF Tool 4.5 or newer is installed."
 
     if ([IntPtr]::Size -eq 4) {
         $regpath = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
@@ -107,11 +107,11 @@ foreach ($mod in $moduleInstalled) {
     $result = Get-ItemProperty $regpath | Select-Object DisplayName, DisplayVersion | Where-Object {$_.DisplayName -like "VMware OVF Tool"}
 
     if ($result -eq $null) {
-        write-host "Please Install VMware OVF Tool 4.3 or greater from https://www.vmware.com/support/developer/ovf/ and re-run the script." -ForegroundColor Yellow
+        write-host "Please Install VMware OVF Tool 4.5 or greater from https://www.vmware.com/support/developer/ovf/ and re-run the script." -ForegroundColor Yellow
         Read-Host -Prompt "Press enter to exit"
         Exit
-    } elseif ([System.Version]$result.DisplayVersion -lt [System.Version]"4.3.0" ){
-        write-host "Please upgrade to VMware OVF Tool 4.3 or greater from https://www.vmware.com/support/developer/ovf/ and re-run the script." -ForegroundColor Yellow
+    } elseif ([System.Version]$result.DisplayVersion -lt [System.Version]"4.5.0" ){
+        write-host "Please upgrade to VMware OVF Tool 4.5 or greater from https://www.vmware.com/support/developer/ovf/ and re-run the script." -ForegroundColor Yellow
         Read-Host -Prompt "Press enter to exit"
         Exit
     } else {
@@ -140,14 +140,6 @@ Function logger($strMessage, [switch]$logOnly,[switch]$consoleOnly)
         write-host $entry
 		$entry | out-file -Filepath $logfile -append
 	}
-}
-Function Invoke-Plink ([string]$remoteHost, [string]$login, [string]$passwd, [string]$plinkOpts, [string]$command) 
-{
-    $plink= "& '$scriptDir\bin\plink.exe'"
-    $expCmd = "Echo Y | $plink -ssh $remoteHost -l `"$login`" -pw `"$passwd`" $plinkOpts `"$command`""
-    Write-Host "Already done, no need to press anything!" -ForeGroundColor Yellow
-    $passRtn = Invoke-Expression $expCmd
-    return $passRtn
 }
 Function byteWriter($dataIn, $fileOut) 
 {
@@ -421,13 +413,6 @@ Function ValidateFormValues
 				    $validEntries = $false
                 } else {
                     $testBringupLics = Get-Content $txtBringupFile.Text | ConvertFrom-JSON
-                    if ($testBringupLics.esxLicense -match "^(.{5}-){4}.{5}$" -and $testBringupLics.nsxtSpec.nsxtLicense -match "^(.{5}-){4}.{5}$" -and $testBringupLics.vsanSpec.licenseFile -match "^(.{5}-){4}.{5}$" -and $testBringupLics.vcenterSpec.licenseFile -match "^(.{5}-){4}.{5}$") {
-                        $lblBringupFile.BackColor = [System.Drawing.Color]::"Green"
-                    } else {
-                        $lblBringupFile.BackColor = [System.Drawing.Color]::"Red"
-				        $validEntries = $false
-                        logger "Licenses don't match REGEX, please ensure licenses are entered correctly"
-                    }
                 }
             if(-not $txtDNS.Text)
                 {
@@ -477,7 +462,9 @@ Function ValidateFormValues
 Function connectVI ($vmHost, $vmUser, $vmPassword, $numTries)
 {
     $i=1
-    Disconnect-VIServer * -Force -Confirm:$true | Out-Null
+    if($($global:DefaultVIServers.Count) -gt 0) {
+        Disconnect-VIServer * -Force -Confirm:$false | Out-Null
+    }
         try {
         Write-host "Connecting to VI, please wait.." -ForegroundColor green
         logger "Connecting to VI, please wait.." -logOnly
@@ -741,14 +728,14 @@ Function Get-VIInfo($vmHost, $vmUser, $vmPassword)
                             If ($isSecSet.AllowPromiscuous.Value -and $isSecSet.ForgedTransmits.Value -and $isSecSet.MacChanges.Value){                 
                                 $listNetName.Items.Add($item.Name) 
                             } else {
-                                logger "$($item.Name) on $($vSwitch.Name) security settings are not valid for VLC! Please enable the security options on the portgroup. Allow Promiscous/Forged transmits/MAC Changes"
+                                logger "$($item.Name) on $($item.VirtualSwitchName) security settings are not valid for VLC! Please enable the security options on the portgroup. Allow Promiscous/Forged transmits/MAC Changes"
                             }
                         } else {                
                             $isSecSet = $item.ExtensionData.Spec.Policy.Security
                             If ($isSecSet.AllowPromiscuous -and $isSecSet.ForgedTransmits -and $isSecSet.MacChanges) {                                                     
                                 $listNetName.Items.Add($item.Name)  
                             } else {
-                                logger "$($item.Name) on $($item.VirtualSwitch) security settings are not valid for VLC!"
+                                logger "$($item.Name) on $($item.VirtualSwitchName) security settings are not valid for VLC!"
                             }       
                         }
                     }
@@ -772,7 +759,7 @@ Function Get-VIInfo($vmHost, $vmUser, $vmPassword)
             $btnConnect.ForeColor = [System.Drawing.Color]::"White"
             $btnConnect.Text = "Connect"       
         }
-    Disconnect-VIServer * -Force -Confirm:$false
+    Disconnect-VIServer * -Force -Confirm:$false | Out-Null
 }       
 function extractvSphereISO ($vSphereISOPath)
 {
@@ -875,7 +862,7 @@ Function cbConfigurator
         [Int]$CloudBuilderCIDR,
         [parameter(Mandatory=$true)]
         [Net.IPAddress]$CloudBuilderGateway,
-        [Net.IPAddress]$DhcpIPSubnet = "172.16.254.0",
+        [String]$DhcpIPRange = "10-99",
         [INT]$DhcpSubnetCIDR = "24",
         [Net.IPAddress]$DhcpGateway = "172.16.254.1",
         [parameter(Mandatory=$true)]
@@ -884,20 +871,22 @@ Function cbConfigurator
     )
 
     $bringUpObject = $global:bringUpOptions
+    $mgmtVlanId = $userOptions.mgmtNetVlan
 
     $dnsIPFQDNs = compileDNSRecords
     [Net.IPAddress]$DhcpSubnetMask = (('1'*$DhcpSubnetCIDR+'0'*(32-$DhcpSubnetCIDR)-split'(.{8})')-ne''|%{[convert]::ToUInt32($_,2)})-join'.'
+    $DhcpIPSubnet = $($DhcpGateway.ToString().Split('.')[0..2] -join '.') + ".0"
+    $DhcpVLANId = $($bringupObject | select -ExpandProperty nsxtSpec | Select -ExpandProperty transportVlanId)
     [Net.IPAddress]$CloudBuilderSubnetMask = (('1'*$CloudBuilderCIDR+'0'*(32-$CloudBuilderCIDR)-split'(.{8})')-ne''|%{[convert]::ToUInt32($_,2)})-join'.'
     [Net.IPAddress]$CloudBuilderIPSubnet =  ($([Net.IPAddress]$CloudBuilderIP).address -band ([Net.IPAddress]$CloudBuilderSubnetMask).address)
-    $DhcpServerIP = $DhcpIPSubnet.ToString().Substring(0,($DhcpIPSubnet.ToString().LastIndexOf(".")+1)) + 199
-    $DhcpRangeStart = $DhcpIPSubnet.ToString().Substring(0,($DhcpServerIP.ToString().LastIndexOf(".")+1)) + 10
-    $DhcpRangeEnd = $DhcpIPSubnet.ToString().Substring(0,($DhcpServerIP.ToString().LastIndexOf(".")+1)) + 100
     $revArray = $CloudBuilderIP.ToString().Split(".") | select -first 3
     $reverseDNS = "$($revArray[($revArray.Count-1)..0] -join '.').in-addr.arpa."
     $vsanNetCIDR = $($bringupObject.networkSpecs| where { $_.networkType -match "VSAN" } | Select -ExpandProperty subnet).split("/")[1]
 	$vsanNetGateway = $($bringupObject.networkSpecs| where { $_.networkType -match "VSAN" } | Select -ExpandProperty gateway)
+    $vsanNetVLAN = $($bringupObject.networkSpecs| where { $_.networkType -match "VSAN" } | Select -ExpandProperty vlanId)
     $vmotionNetCIDR = $($bringupObject.networkSpecs| where { $_.networkType -match "VMOTION" } | Select -ExpandProperty subnet).split("/")[1]
 	$vmotionNetGateway = $($bringupObject.networkSpecs| where { $_.networkType -match "VMOTION" } | Select -ExpandProperty gateway)
+    $vmotionNetVLAN = $($bringupObject.networkSpecs| where { $_.networkType -match "VMOTION" } | Select -ExpandProperty vlanId)
 #AVN Related CloudBuilder Config
     $avnSpec = Get-Content "$scriptDir\automated_api_jsons\NSX_AVN_API.json" | ConvertFrom-JSON
     $avnNetSpecs = $avnSpec | Select -ExpandProperty avns
@@ -918,124 +907,94 @@ Function cbConfigurator
     $edgeNodeSpecs = $edgeClusterSpec | Select -ExpandProperty edgeNodeSpecs
     $edgeUplinkVlans = $edgeNeighbors | Select -ExpandProperty uplinkVlan -Unique
     $edgeUplinkIPs =  foreach ($edgeIP in $edgeNeighbors) {$($edgeIP.uplinkInterfaceIP).Split("/")[0]}
-    #$uplinkInfo = $($avnNetworkInfo | Where -Property networkType -match "UPLINK")
-    $uplinkAddrs = $uplinkInfo | Select -ExpandProperty gateway | foreach {"$_/$($($uplinkInfo | Select -ExpandProperty subnet).Split('/')[1])"}
-    $edgeCidrs = foreach ($edgeCidr in $edgeNeighbors) { $($edgeCidr.uplinkInterfaceIP | Select -Unique).Split("/")[1]}
-    #$edgeTEPInfo = $($avnNetworkInfo | Where -Property networkType -match "NSXT_EDGE_TEP")
+#    $uplinkInfo = $($avnNetworkInfo | Where -Property networkType -match "UPLINK")
+#    $uplinkAddrs = $uplinkInfo | Select -ExpandProperty gateway | foreach {"$_/$($($uplinkInfo | Select -ExpandProperty subnet).Split('/')[1])"}
+#    $edgeCidrs = foreach ($edgeCidr in $edgeNeighbors) { $($edgeCidr.uplinkInterfaceIP | Select -Unique).Split("/")[1]}
+#    $edgeTEPInfo = $($avnNetworkInfo | Where -Property networkType -match "NSXT_EDGE_TEP")
     $nsxSuperNet = $global:userOptions.nsxSuperNet
 
     $replaceNet =""
+    $eth0VLANAdd = ""
+    $eth0AddressAdd = ""
+    $ethMTUAdd = ""
+
+    $nicstoCreate =@{}
+    #Populate Network Info
+    $nicstoCreate.Add("hostTep",@{gwip=$("$DhcpGateway/$DhcpSubnetCIDR");vlan=$DhcpVLANId})
+    $nicstoCreate.Add("vsan",@{gwip=$("$vsanNetGateway/$vsanNetCIDR");vlan=$vsanNetVLAN})
+    $nicstoCreate.Add("vmotion",@{gwip=$("$vmotionNetGateway/$vmotionNetCIDR");vlan=$vmotionNetVLAN})
+    $nicstoCreate.Add("uplink1",@{gwip=$($edgeNeighbors[0].peerIP);vlan=$edgeUplinkVlans[0]})
+    $nicstoCreate.Add("uplink2",@{gwip=$($edgeNeighbors[1].peerIP);vlan=$edgeUplinkVlans[1]})
+    $nicstoCreate.Add("edgeTep",@{gwip=$($edgeNodeSpecs[0].edgeTepGateway)+"/"+$($edgeNodeSpecs[0].edgeTep1IP).Split('/')[1];vlan=$edgeNodeSpecs[0].edgeTepVLAN})
 
     $replaceNet +="echo $($userOptions.masterPassword) | sudo su - <<END`n"
     $replaceNet +="cp /etc/systemd/network/10-eth0.network /etc/systemd/network/10-eth0.network.orig`n"
     $replaceNet +="cp /etc/dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf.orig`n"
     $replaceNet +="cp /etc/ntp.conf /etc/ntp.conf.orig`n"
     $replaceNet +="modprobe 8021q`n"
-    if($($userOptions.mgmtNetVlan) -ne 0) {
-        $mgmtVlanId = $userOptions.mgmtNetVlan
-        #eth0.x config on CloudBuilder
-        $replaceNet +="(`n"
-        $replaceNet +="echo [Match]`n"
-        $replaceNet +="echo Name=eth0`n"
-        $replaceNet +="echo [Network]`n"
-        $replaceNet +="echo DHCP=no`n"
-        $replaceNet +="echo DNS=$CloudBuilderIP`n"
-        $replaceNet +="echo Domains=$vcfDomainname`n"
-        $replaceNet +="echo NTP=$CloudBuilderIP`n"
-        $replaceNet +="echo VLAN=eth0.$($mgmtVlanId)`n"
-        $replaceNet +="echo VLAN=eth0.$($edgeUplinkVlans[0])`n"
-        $replaceNet +="echo VLAN=eth0.$($edgeUplinkVlans[1])`n"
-        $replaceNet +="echo VLAN=eth0.$($edgeNodeSpecs | Select -ExpandProperty edgeTepVlan -Unique)`n"
-        $replaceNet +=")>/etc/systemd/network/10-eth0.network`n"
-        $replaceNet +="(`n"
-        $replaceNet +="echo [NetDev]`n"
-        $replaceNet +="echo Name=eth0.$($mgmtVlanId)`n"
-        $replaceNet +="echo Kind=vlan`n"
-        $replaceNet +="echo [VLAN]`n"
-        $replaceNet +="echo Id=$($mgmtVlanId)`n"
-        $replaceNet +=")>/etc/systemd/network/eth0.$($mgmtVlanId).netdev`n"
-        $replaceNet +="(`n"
-        $replaceNet +="echo [Match]`n"
-        $replaceNet +="echo Name=eth0.$($mgmtVlanId)`n"
-        $replaceNet +="echo [Network]`n"
-        $replaceNet +="echo DHCP=no`n"
-        $replaceNet +="echo Address=$DhcpServerIP/$DhcpSubnetCIDR`n"
-        $replaceNet +="echo Address=$CloudBuilderIP/$CloudBuilderCIDR`n"
-        $replaceNet +="echo Address=$DhcpGateway/$DhcpSubnetCIDR`n"
-        $replaceNet +="echo Address=$vsanNetGateway/$vsanNetCIDR`n"
-        $replaceNet +="echo Address=$vmotionNetGateway/$vmotionNetCIDR`n"
-        $replaceNet +="echo Gateway=$CloudBuilderGateway`n"
-        $replaceNet +=")>/etc/systemd/network/eth0.$($mgmtVlanId).network`n"
-    } else {
-    #eth0 config on CloudBuilder
-        $replaceNet +="(`n"
-        $replaceNet +="echo [Match]`n"
-        $replaceNet +="echo Name=eth0`n"
-        $replaceNet +="echo [Network]`n"
-        $replaceNet +="echo DHCP=no`n"
-        $replaceNet +="echo Address=$DhcpServerIP/$DhcpSubnetCIDR`n"
-        $replaceNet +="echo Address=$CloudBuilderIP/$CloudBuilderCIDR`n"
-        $replaceNet +="echo Address=$DhcpGateway/$DhcpSubnetCIDR`n"
-        $replaceNet +="echo Gateway=$CloudBuilderGateway`n"
-        $replaceNet +="echo DNS=$CloudBuilderIP`n"
-        $replaceNet +="echo Domains=$vcfDomainname`n"
-        $replaceNet +="echo NTP=$CloudBuilderIP`n"
-        $replaceNet +="echo VLAN=eth0.$($edgeUplinkVlans[0])`n"
-        $replaceNet +="echo VLAN=eth0.$($edgeUplinkVlans[1])`n"
-        $replaceNet +="echo VLAN=eth0.$($edgeNodeSpecs | Select -ExpandProperty edgeTepVlan -Unique)`n"
-        $replaceNet +=")>/etc/systemd/network/10-eth0.network`n"
+
+    #Add specific VLAN Nics
+    foreach ($nicEntry in $nicstoCreate.getEnumerator()) {
+            
+        if($nicEntry.Value.vlan -notmatch $mgmtVlanId) {
+                
+            $replaceNet +="(`n"
+            $replaceNet +="echo [NetDev]`n"
+            $replaceNet +="echo Name=eth0.$($nicEntry.Value.vlan)`n"
+            $replaceNet +="echo Kind=vlan`n"
+            $replaceNet +="echo [VLAN]`n"
+            $replaceNet +="echo Id=$($nicEntry.Value.vlan)`n"
+            $replaceNet +=")>/etc/systemd/network/eth0.$($nicEntry.Value.vlan).netdev`n"
+            $replaceNet +="(`n"
+            $replaceNet +="echo [Match]`n"
+            $replaceNet +="echo Name=eth0.$($nicEntry.Value.vlan)`n"
+            $replaceNet +="echo [Network]`n"
+            $replaceNet +="echo DHCP=no`n"
+            $replaceNet +="echo Address=$($nicEntry.Value.gwip)`n"
+            $replaceNet +=")>/etc/systemd/network/eth0.$($nicEntry.Value.vlan).network`n"
+            $eth0VLANAdd +="echo VLAN=eth0.$($nicEntry.Value.vlan)`n"
+            $ethMTUAdd +="echo ExecStart=/sbin/ifconfig eth0.$($nicEntry.Value.vlan) mtu 8940 up`n"
+
+        } else {
+
+            $eth0AddressAdd +="echo Address=$($nicEntry.Value.gwip)`n"
+        }
+
     }
-#Uplink01
-    $replaceNet +="(`n"
-    $replaceNet +="echo [NetDev]`n"
-    $replaceNet +="echo Name=eth0.$($edgeUplinkVlans[0])`n"
-    $replaceNet +="echo Kind=vlan`n"
-    $replaceNet +="echo [VLAN]`n"
-    $replaceNet +="echo Id=$($edgeUplinkVlans[0])`n"
-    $replaceNet +=")>/etc/systemd/network/eth0.$($edgeUplinkVlans[0]).netdev`n"
+
+    #eth0.x config on CloudBuilder
     $replaceNet +="(`n"
     $replaceNet +="echo [Match]`n"
-    $replaceNet +="echo Name=eth0.$($edgeUplinkVlans[0])`n"
+    $replaceNet +="echo Name=eth0`n"
     $replaceNet +="echo [Network]`n"
     $replaceNet +="echo DHCP=no`n"
- #  $replaceNet +="echo Address=$($edgeNeighbors[0].uplinkInterfaceIP)`n"
-    $replaceNet +="echo Address=$($edgeNeighbors[0].peerIP)`n"
-    $replaceNet +=")>/etc/systemd/network/eth0.$($edgeUplinkVlans[0]).network`n"
-#Uplink02
+    $replaceNet +="echo DNS=$CloudBuilderIP`n"
+    $replaceNet +="echo Domains=$vcfDomainname`n"
+    $replaceNet +="echo NTP=$CloudBuilderIP`n"
+    $replaceNet += $eth0VLANAdd
+    $replaceNet +="echo VLAN=eth0.$($mgmtVlanId)`n"
+    $replaceNet +=")>/etc/systemd/network/10-eth0.network`n"
     $replaceNet +="(`n"
     $replaceNet +="echo [NetDev]`n"
-    $replaceNet +="echo Name=eth0.$($edgeUplinkVlans[1])`n"
-    $replaceNet +="echo Kind=vlan`n"
+    $replaceNet +="echo Name=eth0.$($mgmtVlanId)`n"
+    $replaceNet +="echo Kind=vlan`n"     
     $replaceNet +="echo [VLAN]`n"
-    $replaceNet +="echo Id=$($edgeUplinkVlans[1])`n"
-    $replaceNet +=")>/etc/systemd/network/eth0.$($edgeUplinkVlans[1]).netdev`n"
+    $replaceNet +="echo Id=$($mgmtVlanId)`n"
+    $replaceNet +=")>/etc/systemd/network/eth0.$($mgmtVlanId).netdev`n"
     $replaceNet +="(`n"
     $replaceNet +="echo [Match]`n"
-    $replaceNet +="echo Name=eth0.$($edgeUplinkVlans[1])`n"
+    $replaceNet +="echo Name=eth0.$($mgmtVlanId)`n"
     $replaceNet +="echo [Network]`n"
     $replaceNet +="echo DHCP=no`n"
- #   $replaceNet +="echo Address=$($uplinkAddrs[1])`n"
-    $replaceNet +="echo Address=$($edgeNeighbors[1].peerIP)`n"
-    $replaceNet +=")>/etc/systemd/network/eth0.$($edgeUplinkVlans[1]).network`n"
-#Edge Overlay
-    $replaceNet +="(`n"
-    $replaceNet +="echo [NetDev]`n"
-    $replaceNet +="echo Name=eth0.$($edgeNodeSpecs.edgeTepVlan | Select -Unique)`n"
-    $replaceNet +="echo Kind=vlan`n"
-    $replaceNet +="echo [VLAN]`n"
-    $replaceNet +="echo Id=$($edgeNodeSpecs.edgeTepVlan | Select -Unique)`n"
-    $replaceNet +=")>/etc/systemd/network/eth0.$($edgeNodeSpecs.edgeTepVlan | Select -Unique).netdev`n"
-    $replaceNet +="(`n"
-    $replaceNet +="echo [Match]`n"
-    $replaceNet +="echo Name=eth0.$($edgeNodeSpecs.edgeTepVlan | Select -Unique)`n"
-    $replaceNet +="echo [Network]`n"
-    $replaceNet +="echo DHCP=no`n"
-    $replaceNet +="echo Address=$($edgeNodeSpecs.edgeTepgateway[0])/$(($edgeNodeSpecs.edgeTep1IP[0]).Split("/")[1])`n"
-    $replaceNet +=")>/etc/systemd/network/eth0.$($edgeNodeSpecs.edgeTepVlan | Select -Unique).network`n"
+    $replaceNet +=$eth0AddressAdd
+    $replaceNet +="echo Address=$CloudBuilderIP/$CloudBuilderCIDR`n"
+    $replaceNet +="echo Gateway=$CloudBuilderGateway`n"
+    $replaceNet +=")>/etc/systemd/network/eth0.$($mgmtVlanId).network`n"
+    #Set permissions on new interfaces and restart networking services
     $replaceNet +="chmod 644 /etc/systemd/network/*.net*`n"
     $replaceNet +="systemctl enable systemd-networkd-wait-online.service`n"
     $replaceNet +="systemctl restart systemd-networkd`n"
-#DHCP Config
+    #DHCP
     $replaceNet +="(`n"
     $replaceNet +="echo option domain-name \`"$vcfDomainname\`"\;`n"
     $replaceNet +="echo option domain-name-servers $CloudBuilderIP\;`n"
@@ -1047,9 +1006,9 @@ Function cbConfigurator
     $replaceNet +="echo }`n"
     $replaceNet +="echo `n"
     $replaceNet +="echo subnet $DhcpIPSubnet netmask $DhcpSubnetMask {`n"
-    $replaceNet +="echo   range $DhcpRangeStart $DhcpRangeEnd\;`n"
+    $replaceNet +="echo   range $($DhcpIPSubnet.Split('.')[0..2] -join '.').$($DhcpIPRange.Split('-')[0]) $($DhcpIPSubnet.Split('.')[0..2] -join '.').$($DhcpIPRange.Split('-')[1])\;`n"
     $replaceNet +="echo   option domain-name-servers $CloudBuilderIP\;`n"
-    $replaceNet +="echo   option routers $DhcpGateway\;`n"
+    $replaceNet +="echo   option routers $($DhcpGateway.ToString())\;`n"
     $replaceNet +="echo }`n"
     $replaceNet +=")>/etc/dhcp/dhcpd.conf`n"
     $replaceNet +="(`n"
@@ -1068,11 +1027,12 @@ Function cbConfigurator
     $replaceNet +="echo WantedBy=multi-user.target`n"
     $replaceNet +=")>/etc/systemd/system/dhcpd4@.service`n"
     $replaceNet +="ln /etc/dhcp/dhcpd.conf /etc/dhcpd.conf `n"
-    if($mgmtVlanId -in 1..4094) {
-        $replaceNet +="systemctl enable dhcpd4\@eth0.$mgmtVlanId.service`n"
+    if($DhcpVLANId -in 1..4094) {
+    $replaceNet +="systemctl enable dhcpd4\@eth0.$DhcpVLANId.service`n"
     } else {
         $replaceNet +="systemctl enable dhcpd4\@eth0.service`n"
     }
+    #ETHMTU Service
     $replaceNet +="(`n"
     $replaceNet +="echo [Unit]`n"
     $replaceNet +="echo Description=Network interface initialization`n"
@@ -1083,9 +1043,7 @@ Function cbConfigurator
     $replaceNet +="echo ExecStart=/sbin/ethtool -K eth0 gso off gro off tso off`n"
     $replaceNet +="echo ExecStart=/sbin/ifconfig eth0 mtu 8940 up`n"
     $replaceNet +="echo ExecStart=/sbin/ifconfig eth0.$($mgmtVlanId) mtu 8940 up`n"
-    $replaceNet +="echo ExecStart=/sbin/ifconfig eth0.$($edgeUplinkVlans[0]) mtu 8940 up`n"
-    $replaceNet +="echo ExecStart=/sbin/ifconfig eth0.$($edgeUplinkVlans[1]) mtu 8940 up`n"
-    $replaceNet +="echo ExecStart=/sbin/ifconfig eth0.$($edgeNodeSpecs | Select -ExpandProperty edgeTepVlan -Unique) mtu 8940 up`n"
+    $replaceNet +=$ethMTUAdd
     $replaceNet +="echo ExecStart=ip route add $($avnNets[0]) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
     $replaceNet +="echo ExecStart=ip route add $($avnNets[1]) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
     $replaceNet +="echo ExecStart=ip route add $($tzEgress) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
@@ -1192,7 +1150,17 @@ Function cbConfigurator
     $replaceDNS +="echo upstream_servers[\`"$revxRegionDNS\`"] = \`"127.0.0.1\`"`n"
     $replaceDNS +="echo upstream_servers[\`"vcf.holo.lab.\`"] = \`"10.0.0.201\`"`n"
     $replaceDNS +="echo upstream_servers[\`"$vcfDomainName.\`"] = \`"127.0.0.1\`"`n"
-    $replaceDNS +="echo recursive_acl = \`"$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
+#Additional Site Config if present
+    if ($global:userOptions.altSiteDNSServerIP -and $global:userOptions.altSitemgmtNetSubnet -and $global:userOptions.altSitevcfDomainName) {
+        $revAltSiteArray = $($global:userOptions.altSitemgmtNetSubnet).ToString().Split(".") | select -first 3
+        $reverseAltSiteDNS = "$($revAltSiteArray[($revAltSiteArray.Count-1)..0] -join '.').in-addr.arpa."
+        $replaceDNS +="echo upstream_servers[\`"$reverseAltSiteDNS\`"] = \`"$($global:userOptions.altSiteDNSServerIP)\`"`n"
+        $replaceDNS +="echo upstream_servers[\`"$($global:userOptions.altSitevcfDomainName).\`"] = \`"$($global:userOptions.altSiteDNSServerIP)\`"`n"
+        $replaceDNS +="echo recursive_acl = \`"$($global:userOptions.altSitemgmtNetSubnet),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
+
+    } else {
+        $replaceDNS +="echo recursive_acl = \`"$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
+    }
     $replaceDNS +="echo filter_rfc1918 = 0`n"
     $replaceDNS +=")> /etc/dwood3rc`n"
     $replaceDNS +="(`n"
@@ -1269,7 +1237,7 @@ Function cbConfigurator
     $replaceDNS +="/sbin/chkconfig vaos off`n"
     $replaceDNS +="rm /opt/vmware/etc/init.d/vamitty.conf`n"
     #$replaceDNS +="rm -rf /usr/lib/systemd/system/getty@tty1.service.d`n"
-    $replaceDNS +="echo -e 'Cloudbuilder customized by \e[37;44mVLC 4.5.3\e[0m | \e[30;102mMgmt IP: $CloudBuilderIP\e[0m' >> /etc/issue`n"
+    $replaceDNS +="echo -e 'Cloudbuilder customized by \e[37;44mVLC 5.0\e[0m | \e[30;102mMgmt IP: $CloudBuilderIP\e[0m' >> /etc/issue`n"
     $replaceDNS +="shutdown -r`n"
     $replaceDNS +="END`n"
 
@@ -1474,7 +1442,7 @@ function setFormControls ($formway)
                         $txtBringUpFile.Enabled = $true
                         $lblBringUpFile.visible = $true
                         $txtBringUpFile.visible = $true
-                        $txtBringUpFile.Text = "$scriptDir\NOLIC-45-vcf-ems-public.json"
+                        $txtBringUpFile.Text = "$scriptDir\NOLIC-5.0TMM.ems.json"
 
                         $lblMgmtNetVLAN.Enabled = $false
                         $txtMgmtNetVLAN.Enabled = $false
@@ -2021,14 +1989,15 @@ if ($isCLI) {
         exit
     }
 
-    $iniContent = Get-Content $iniConfigFile
+    $iniContent = @(Get-Content $iniConfigFile) -match '\S'
     $global:userOptions += @{"internalSvcs" = "True"}
     $global:userOptions += @{"guestOS" = "vmkernel65guest"}
     $global:userOptions += @{"Typeguestdisk"="Thin"}
     $global:userOptions += @{"cbName"="CB-01a"}
     $global:Ways = "internalsvcs"
-    foreach($ic in $iniContent) {$global:userOptions +=@{$ic.Split("=")[0]=$ic.Split("=")[1]}}
+    foreach($ic in $iniContent) {if($ic -notmatch '^[;#]'){$global:userOptions +=@{$ic.Split("=")[0]=$ic.Split("=")[1]}}}
     $global:bringUpOptions = Get-Content -Raw $($global:userOptions.VCFEMSFile)  | ConvertFrom-Json
+    $global:userOptions.mgmtNetCidr=$($global:userOptions.mgmtNetSubnet).Substring(($($global:userOptions.mgmtNetSubnet).IndexOf("/")+1),($($global:userOptions.mgmtNetSubnet).Length - ($($global:userOptions.mgmtNetSubnet).IndexOf("/") +1)))
     $global:userOptions.chkInternal = [System.Convert]::ToBoolean($global:userOptions.chkInternal)
     $global:userOptions.useCBIso = [System.Convert]::ToBoolean($global:userOptions.useCBIso)
     $global:userOptions.deployWldMgmt = [System.Convert]::ToBoolean($global:userOptions.deployWldMgmt)
@@ -2037,7 +2006,9 @@ if ($isCLI) {
     $global:userOptions.deployEdgeCluster = [System.Convert]::ToBoolean($global:userOptions.deployEdgeCluster)
     $global:userOptions.bringupAfterBuild = [System.Convert]::ToBoolean($global:userOptions.bringupAfterBuild)
     
-    Disconnect-VIServer * -Force -Confirm:$true | Out-Null
+    if($($global:DefaultVIServers.Count) -gt 0) {
+        Disconnect-VIServer * -Force -Confirm:$false | Out-Null
+    }
 } else {
 
 #endregion CLI Mode
@@ -2126,7 +2097,7 @@ if ($isCLI) {
 "@
 #region formControls
             $frmVCFLCMain = New-Object system.Windows.Forms.Form
-            $frmVCFLCMain.Text = "VCF Lab Constructor beta 4.5.3"
+            $frmVCFLCMain.Text = "VCF Lab Constructor beta 5.0"
             $frmVCFLCMain.TopMost = $true
             $frmVCFLCMain.Width = 850
             $frmVCFLCMain.Height = 450
@@ -3335,9 +3306,9 @@ if ($userOptions.nestedVMPrefix.Length -gt 0) {
     $userOptions.nestedVMPrefix = $userOptions.nestedVMPrefix + "-"
 } 
 
-logger "----------------------Inputs------------------4.5.3--"
-foreach ($uO in $global:userOptions.GetEnumerator()){logger $($uO.Key + "`t`t" + $uO.Value)}
-logger "--------------------END-Inputs--------------------" 
+logger "----------------------Inputs------------------5.0----"
+foreach ($uO in $global:userOptions.GetEnumerator() | Sort Name){logger $($uO.Key + "`t`t" + $uO.Value)}
+logger "--------------------END-Inputs-----------------------" 
 
 # Parse Host JSONs
 $hostsToBuild = New-Object System.Collections.Arraylist
@@ -3520,16 +3491,27 @@ If (!$chkHostOnly.Checked) {
     # Cloud Builder Config
     If ([bool]$userOptions.internalSvcs) {
         # Configure DNS/NTP/DHCP/BGP on CloudBuilder
+        $cbConfigParms =@{  "CloudbuilderIP"=$netCBIPaddress;
+                            "CloudBuilderCIDR"=$netCBSubnetCidr;
+                            "CBName"=$cbName;
+                            "vcfDomainName"=$vcfDomainName;
+                            }
         if ($($userOptions.labGateway -ne "")) {
             if ($(IS-InSubnet -ipaddress $($userOptions.labGateway) -Cidr $netCBSubnet)) {
-                cbConfigurator -CloudBuilderIP $netCBIPaddress -CloudBuilderCIDR $netCBSubnetCidr -CloudBuilderGateway $($userOptions.labGateway) -CBName $cbName -vcfDomainName $vcfDomainName
+                $cbConfigParms.Add("CloudBuilderGateway",$($userOptions.labGateway))
             } else {
                 logger "Lab Gateway IP invalid, skipping"
-                cbConfigurator -CloudBuilderIP $netCBIPaddress -CloudBuilderCIDR $netCBSubnetCidr -CloudBuilderGateway $netCBGateway -CBName $cbName -vcfDomainName $vcfDomainName
+                $cbConfigParms.Add("CloudBuilderGateway",$netCBGateway)
             }
         } else {
-            cbConfigurator -CloudBuilderIP $netCBIPaddress -CloudBuilderCIDR $netCBSubnetCidr -CloudBuilderGateway $netCBGateway -CBName $cbName -vcfDomainName $vcfDomainName
+            $cbConfigParms.Add("CloudBuilderGateway",$netCBGateway)
         }
+        if ($userOptions.hostTepGWIP -and $userOptions.hostTepCIDR -and $userOptions.hostTepRange) {
+            $cbconfigParms.Add("DhcpGateway",$($userOptions.hostTepGWIP))
+            $cbConfigParms.Add("DhcpSubnetCIDR",$($userOptions.hostTepCIDR))
+            $cbConfigParms.Add("DhcpIPRange",$($userOptions.hostTepRange))
+        }
+        cbConfigurator @cbConfigParms
     }
 
 }
@@ -3947,14 +3929,12 @@ public static class Dummy {
     $domainManagercfg="echo `"$($userOptions.masterPassword)`" | sudo su - <<END`n"
     $domainManagercfg+="(`n"	
     $domainManagercfg+="echo \#VLC Lab sizing entries`n"
-    $domainManagercfg+="echo nsxt.manager.formfactor=small`n"
     $domainManagercfg+="echo nsxt.manager.wait.minutes=45`n"
     $domainManagercfg+="echo nsxt.manager.cluster.size=1`n"
     $domainManagercfg+="echo nsxt.management.resources.validation.skip=true`n"
-    $domainManagercfg+="echo vc7.deployment.option=tiny`n"
     $domainManagercfg+=")>>/etc/vmware/vcf/domainmanager/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/lcm.core.manifest.poll.interval=300000/lcm.core.manifest.poll.interval=120000/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
-    $domainManagercfg += "sed -i 's/vrslcm.install.base.version=8.1.0-16776528/vrslcm.install.base.version=8.8.2-20080494/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
+    $domainManagercfg += "sed -i 's/vrslcm.install.base.version=8.1.0-16776528/vrslcm.install.base.version=8.10.0-21331275/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/vra.install.base.version=8.1.0-15986821//g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/vrops.install.base.version=8.1.1-16522874//g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/vrli.install.base.version=8.1.1-16281169//g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
@@ -4187,7 +4167,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                         cluster = $tzCluster
                         description = "VLC Created Namespace"
                         namespace = "ns01"
-                        storage_specs = @(@{ limit = 0; policy = $tzStoragePolicyID})
+                        storage_specs = @(@{ policy = $tzStoragePolicyID})
                         vm_service_spec = @{ vm_classes = @( "best-effort-small" )}
                         }
                     vcCreateObject -vcServer $managementVCIP -vcToken $tzVcToken -entityType "namespaces/instances" -tzJsonPayload $($tzNsConfigObject | ConvertTo-JSON -Depth 10)

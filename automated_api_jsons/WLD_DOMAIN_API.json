@@ -137,6 +137,6 @@
     "vipFqdn": "nsx-wld.vcf.sddc.lab",
     "licenseKey": "",
     "nsxManagerAdminPassword": "VMware123!VMware123!",
-    "formFactor": "small"
+    "formFactor": "medium"
   }
 }
