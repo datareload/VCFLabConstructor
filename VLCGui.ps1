@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v5 6/12/2023
+# VLC - Lab Constructor beta v5 6/14/2023
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com;
 # wlam@vmware.com;kgleed@vmware.com;tthompson@vmware.com
@@ -918,7 +918,7 @@ Function cbConfigurator
     $eth0AddressAdd = ""
     $ethMTUAdd = ""
 
-    $nicstoCreate =@{}
+    $nicstoCreate =[Ordered]@{}
     #Populate Network Info
     $nicstoCreate.Add("hostTep",@{gwip=$("$DhcpGateway/$DhcpSubnetCIDR");vlan=$DhcpVLANId})
     $nicstoCreate.Add("vsan",@{gwip=$("$vsanNetGateway/$vsanNetCIDR");vlan=$vsanNetVLAN})
@@ -3954,6 +3954,7 @@ public static class Dummy {
     $managementVCIP = $($Global:bringupOptions | Select -ExpandProperty vCenterSpec | Select vcenterIp).vcenterIp
     $mgmtClusterName = $($Global:bringupOptions | Select -ExpandProperty clusterSpec | Select clusterName).clusterName
     $nsxMgtVM = $($Global:bringupOptions | Select -ExpandProperty nsxtSpec | Select -ExpandProperty nsxtManagers | Select hostname).hostname 
+    $nsxEMSInfo = $Global:bringupOptions | Select -ExpandProperty nsxtSpec | Select vip, nsxtAdminPassword
     $ssoDomain = $($Global:bringUpOptions | Select -ExpandProperty pscSpecs | Select -ExpandProperty pscSsoSpec | Select ssoDomain -Unique).ssoDomain
     $ssoAdminPassword = $($Global:bringUpOptions | Select -ExpandProperty pscSpecs | Select adminUserSsoPassword -Unique).adminUserSsoPassword
     $ssoCredential = "administrator@$ssoDomain"
@@ -4063,6 +4064,17 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
             Get-VM -Name $($edgeNodeName.Split(".")[0]) | Get-VMResourceConfiguration | Set-VMResourceConfiguration -MemReservationGB 0 -CpuSharesLevel "Normal"
         }
         Disconnect-VIServer * -Force -Confirm:$false | Out-Null
+        $nsxCreds = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("admin:$($nsxEMSInfo.nsxtAdminPassword)"))
+        $authheader = "Basic " + $nsxCreds
+        $header =@{}
+        $header.Add("Authorization",$authHeader)
+        $edgeIDs = Invoke-RestMethod -Uri "https://$($nsxEMSInfo.vip)/api/v1/transport-nodes" -Headers $header | Select -ExpandProperty results | Where {$_.display_name -match "edge"} | Select node_id
+        foreach($nsxedge in $edgeIDs) {
+            $nsxUri = "https://$($nsxEMSInfo.vip)/api/v1/transport-nodes/$($nsxedge.node_id)`?action=refresh_node_configuration&resource_type=EdgeNode"
+            $return = Invoke-RestMethod -Uri $nsxUri -Headers $header -Method POST
+            logger $return
+        }
+}
     }
     if ([bool]$global:userOptions.deployWldMgmt) {
         $failOut = $false
