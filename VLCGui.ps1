@@ -4072,7 +4072,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
         foreach($nsxedge in $edgeIDs) {
             $nsxUri = "https://$($nsxEMSInfo.vip)/api/v1/transport-nodes/$($nsxedge.node_id)`?action=refresh_node_configuration&resource_type=EdgeNode"
             $return = Invoke-RestMethod -Uri $nsxUri -Headers $header -Method POST
-            logger $return
+            logger "Resolving Edge Config API call: $return"
         }
     }
     if ([bool]$global:userOptions.deployWldMgmt) {
