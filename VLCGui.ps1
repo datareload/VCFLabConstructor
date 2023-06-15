@@ -193,7 +193,11 @@ Function SetFormValues ($formContent)
         $txtlabGateway.Text = $formContent.labGateway
         $txtLabDNS.Text = $formContent.labDNS
         $txtvSphereISOLoc.Text = $formContent.vSphereISOLoc
-        $chkUseCBIso.Checked = $formContent.UseCBIso
+        if ($global:Ways -match "expansion"){
+            $chkUseCBIso.Checked = $false
+        } else {
+            $chkUseCBIso.Checked = $formContent.UseCBIso
+        }
         $txtvmPrefix.Text = $formContent.nestedVMPrefix
 	    $txtMasterPass.Text = $formContent.masterPassword
         $txtBringupFile.Text = $formContent.VCFEMSFile
@@ -1569,7 +1573,7 @@ function setFormControls ($formway)
                         $txtNestedJSON.Text = ""
 
                         $chkUseCBISO.Enabled = $false
-                        $chkUseCBISO.Checked = $false
+                        $chkUseCBISO.Checked = $false                      
                         $lblvSphereISOLoc.Enabled = $true
                         $txtvSphereISOLoc.Enabled = $true
 
@@ -2107,9 +2111,11 @@ if ($isCLI) {
             $frmVCFLCMain.Controls.Add($mainMenu)
 
             (addMenuItem -ParentItem ([ref]$mainMenu) -ItemName 'mnuFile' -ItemText 'File' -ScriptBlock $null) | %{ 
-            $null=addMenuItem -ParentItem ([ref]$_) -ItemName 'mnuFileOpen' -ItemText 'Load' -ScriptBlock $sbLoadSettings; 
-            $null=addMenuItem -ParentItem ([ref]$_) -ItemName 'mnuFileSave' -ItemText 'Save' -ScriptBlock $sbSaveSettings; 
+            $loadMenu=addMenuItem -ParentItem ([ref]$_) -ItemName 'mnuFileOpen' -ItemText 'Load' -ScriptBlock $sbLoadSettings; 
+            $saveMenu=addMenuItem -ParentItem ([ref]$_) -ItemName 'mnuFileSave' -ItemText 'Save' -ScriptBlock $sbSaveSettings; 
             $null=addMenuItem -ParentItem ([ref]$_) -ItemName 'mnuFileExit' -ItemText 'Exit' -ScriptBlock $sbExit;} | Out-Null; 
+            $loadMenu[1].Enabled=$false
+            $saveMenu[1].Enabled=$false
 
             $pnlWaysPanel = New-Object System.Windows.Forms.Panel
             $pnlWaysPanel.Width = 425
@@ -2128,7 +2134,11 @@ if ($isCLI) {
             $btnWay1.location = new-object system.drawing.point(0,25)
             $btnWay1.Image = $(convert64Img $way2Img)
             $btnWay1.ImageAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-            $btnWay1.Add_Click({setFormControls "internalsvcs"})
+            $btnWay1.Add_Click({
+                setFormControls "internalsvcs"
+                $loadMenu[1].Enabled=$true
+                $saveMenu[1].Enabled=$true
+            })
             $btnWay1.Add_MouseHover($ShowTips)
             $pnlWaysPanel.Controls.Add($btnWay1)
 
@@ -2143,7 +2153,11 @@ if ($isCLI) {
             $btnWay2.Image = $(convert64Img $way1Img)
             $btnWay2.ImageAlign = [System.Drawing.ContentAlignment]::MiddleLeft
             $btnWay2.location = new-object system.drawing.point(0,155)
-            $btnWay2.Add_Click({setFormControls "externalsvcs"})
+            $btnWay2.Add_Click({
+                setFormControls "externalsvcs"
+                $loadMenu[1].Enabled=$true
+                $saveMenu[1].Enabled=$true
+            })
             $btnWay2.Add_MouseHover($ShowTips)
             $pnlWaysPanel.Controls.Add($btnWay2)
 
@@ -2158,7 +2172,11 @@ if ($isCLI) {
             $btnWay3.Image = $(convert64Img $way3Img)
             $btnWay3.ImageAlign = [System.Drawing.ContentAlignment]::MiddleLeft
             $btnWay3.location = new-object system.drawing.point(0,285)
-            $btnWay3.Add_Click({setFormControls "expansion"})
+            $btnWay3.Add_Click({
+                setFormControls "expansion"
+                $loadMenu[1].Enabled=$true
+                $saveMenu[1].Enabled=$true
+            })
             $btnWay3.Add_MouseHover($ShowTips)
             $pnlWaysPanel.Controls.Add($btnWay3)
 
@@ -3642,7 +3660,7 @@ logger "Setting VLC.cfg info...                "
 $kscfg="#VCF Scripted Nested Host Install`n"
 $kscfg+="vmaccepteula`n"
 $kscfg+="rootpw $masterPassword`n"
-$kscfg+="install --firstdisk --novmfsondisk`n"
+$kscfg+="install --firstdisk --novmfsondisk --ignoreprereqwarnings --ignoreprereqerrors --forceunsupportedinstall`n"
 $kscfg+="reboot`n"
 $kscfg+="`n"
 $kscfg+="%include /tmp/hostConfig`n"
