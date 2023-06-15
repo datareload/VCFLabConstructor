@@ -4074,7 +4074,6 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
             $return = Invoke-RestMethod -Uri $nsxUri -Headers $header -Method POST
             logger $return
         }
-}
     }
     if ([bool]$global:userOptions.deployWldMgmt) {
         $failOut = $false
