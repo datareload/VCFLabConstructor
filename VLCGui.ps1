@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v5 6/14/2023
+# VLC - Lab Constructor beta v5 6/22/2023
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com;
 # wlam@vmware.com;kgleed@vmware.com;tthompson@vmware.com
@@ -195,6 +195,7 @@ Function SetFormValues ($formContent)
         $txtvSphereISOLoc.Text = $formContent.vSphereISOLoc
         if ($global:Ways -match "expansion"){
             $chkUseCBIso.Checked = $false
+            $chkUseCBIso.Enabled = $false
         } else {
             $chkUseCBIso.Checked = $formContent.UseCBIso
         }
@@ -1573,7 +1574,7 @@ function setFormControls ($formway)
                         $txtNestedJSON.Text = ""
 
                         $chkUseCBISO.Enabled = $false
-                        $chkUseCBISO.Checked = $false                      
+                        $chkUseCBISO.Checked = $false
                         $lblvSphereISOLoc.Enabled = $true
                         $txtvSphereISOLoc.Enabled = $true
 
@@ -2773,6 +2774,7 @@ if ($isCLI) {
             $comboBoxBuildOps.Location = New-Object System.Drawing.Point(200, 325) 
             $comboBoxBuildOps.Size = New-Object System.Drawing.Size(100, 10) 
             $comboBoxBuildOps.Items.add("WLD Domain") 
+            $comboBoxBuildOps.Items.add("ISOWLD Domain") 
             $comboBoxBuildOps.Items.add("Cluster") 
             $comboBoxBuildOps.Items.add("None") 
             $frmVCFLCMain.controls.Add($comboBoxBuildOps)
@@ -4286,10 +4288,14 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                 } else {
                     sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId ($clusterCreateTask.id)
                 }
-            } elseif ($($global:userOptions.buildOps -match "WLD Domain")) {
+            } elseif ($($global:userOptions.buildOps -match "WLD Domain") -or $($global:userOptions.buildOps -match "ISOWLD Domain")) {
                 #Build WLD
                 logger "Loading DOMAIN json file"
-                $wldDomainPayload= $(get-content $scriptdir\automated_api_jsons\WLD_DOMAIN_API.json | ConvertFrom-JSON)
+                if ($($global:userOptions.buildOps -match "ISOWLD Domain")) {
+                    $wldDomainPayload= $(get-content $scriptdir\automated_api_jsons\ISOWLD_DOMAIN_API.json | ConvertFrom-JSON)
+                } else {
+                    $wldDomainPayload= $(get-content $scriptdir\automated_api_jsons\WLD_DOMAIN_API.json | ConvertFrom-JSON)
+                }
                 logger "Set licenses"
                 #Host
                 $wldDomainPayload.computeSpec.clusterSpecs.hostSpecs | foreach {$_.licenseKey = $global:bringUpOptions.esxLicense}
