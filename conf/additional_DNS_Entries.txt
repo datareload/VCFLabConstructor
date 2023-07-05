@@ -34,3 +34,5 @@ esxi-10.vcf.sddc.lab. FQDN4 10.0.0.110
 esxi-11.vcf.sddc.lab. FQDN4 10.0.0.111
 esxi-12.vcf.sddc.lab. FQDN4 10.0.0.112
 mgmt-hcxm-01.vcf.sddc.lab. FQDN4 10.0.0.131
+vcg.vcf.sddc.lab. FQDN4 10.0.0.180
+
