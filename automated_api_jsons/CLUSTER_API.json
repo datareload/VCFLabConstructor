@@ -1,94 +1,129 @@
 {
-  "computeSpec": {
-    "clusterSpecs": [
-      {
-        "name": "mgmt-cluster-02",
-        "hostSpecs": [
-          {
-            "id": "",
-            "licenseKey": "",
-            "hostNetworkSpec": {
-              "vmNics": [
-                {
-                  "id": "vmnic0",
-                  "vdsName": "mgmt-vds02"
-                },
-                {
-                  "id": "vmnic1",
-                  "vdsName": "mgmt-vds02"
-                }
-              ]
-            }
-          },
-          {
-            "id": "",
-            "licenseKey": "",
-            "hostNetworkSpec": {
-              "vmNics": [
-                {
-                  "id": "vmnic0",
-                  "vdsName": "mgmt-vds02"
-                },
-                {
-                  "id": "vmnic1",
-                  "vdsName": "mgmt-vds02"
-                }
-              ]
-            }
-          },
-          {
-            "id": "",
-            "licenseKey": "",
-            "hostNetworkSpec": {
-              "vmNics": [
-                {
-                  "id": "vmnic0",
-                  "vdsName": "mgmt-vds02"
-                },
-                {
-                  "id": "vmnic1",
-                  "vdsName": "mgmt-vds02"
-                }
-              ]
-            }
-          }
-        ],
-        "datastoreSpec": {
-          "vsanDatastoreSpec": {
-            "failuresToTolerate": 1,
-            "licenseKey": "",
-            "datastoreName": "vcf-vsan02"
-          }
-        },
-        "networkSpec": {
-          "vdsSpecs": [
+    "computeSpec": {
+        "clusterSpecs": [
             {
-              "name": "mgmt-vds02",
-              "isUsedByNsxt": true,
-              "portGroupSpecs": [
-                {
-                  "name": "sddc-vds02-mgmt",
-                  "transportType": "MANAGEMENT"
+                "name": "mgmt-cluster-02",
+                "clusterImageId": "",
+                "hostSpecs": [
+                    {
+                        "id": "",
+                        "licenseKey": "",
+                        "hostNetworkSpec": {
+                            "vmNics": [
+                                {
+                                    "id": "vmnic0",
+                                    "vdsName": "mgmt-vds02"
+                                },
+                                {
+                                    "id": "vmnic1",
+                                    "vdsName": "mgmt-vds02"
+                                },
+                                {
+                                    "id": "vmnic2",
+                                    "vdsName": "mgmt-vsan-vds02"
+                                },
+                                {
+                                    "id": "vmnic3",
+                                    "vdsName": "mgmt-vsan-vds02"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "id": "",
+                        "licenseKey": "",
+                        "hostNetworkSpec": {
+                            "vmNics": [
+                                {
+                                    "id": "vmnic0",
+                                    "vdsName": "mgmt-vds02"
+                                },
+                                {
+                                    "id": "vmnic1",
+                                    "vdsName": "mgmt-vds02"
+                                },
+                                {
+                                    "id": "vmnic2",
+                                    "vdsName": "mgmt-vsan-vds02"
+                                },
+                                {
+                                    "id": "vmnic3",
+                                    "vdsName": "mgmt-vsan-vds02"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "id": "",
+                        "licenseKey": "",
+                        "hostNetworkSpec": {
+                            "vmNics": [
+                                {
+                                    "id": "vmnic0",
+                                    "vdsName": "mgmt-vds02"
+                                },
+                                {
+                                    "id": "vmnic1",
+                                    "vdsName": "mgmt-vds02"
+                                },
+                                {
+                                    "id": "vmnic2",
+                                    "vdsName": "mgmt-vsan-vds02"
+                                },
+                                {
+                                    "id": "vmnic3",
+                                    "vdsName": "mgmt-vsan-vds02"
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "datastoreSpec": {
+                    "vsanDatastoreSpec": {
+                        "failuresToTolerate": 1,
+                        "licenseKey": "",
+                        "datastoreName": "vcf-vsan02"
+                    }
                 },
-                {
-                  "name": "sddc-vds02-vmotion",
-                  "transportType": "VMOTION"
-                },
-                {
-                  "name": "sddc-vds02-vsan",
-                  "transportType": "VSAN"
+                "networkSpec": {
+                    "vdsSpecs": [
+                        {
+                            "name": "mgmt-vds02",
+          		    "nsxtSwitchConfig" : {
+            			"transportZones" : [ {
+              			"name" : "sddc-vds02-overlay01",
+              			"transportType" : "OVERLAY"
+            			} ]
+			    },
+                            "portGroupSpecs": [
+                                {
+                                    "name": "sddc-vds02-mgmt",
+                                    "transportType": "MANAGEMENT"
+                                },
+                                {
+                                    "name": "sddc-vds02-vmotion",
+                                    "transportType": "VMOTION"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "mgmt-vsan-vds02",
+                            "portGroupSpecs": [
+                                {
+                                    "name": "sddc-vds02-vsan",
+                                    "transportType": "VSAN"
+                                }
+                            ]
+                        }
+                    ],
+                    "nsxClusterSpec": {
+                        "nsxTClusterSpec": {
+                            "geneveVlanId": 0
+                        }
+                    }
                 }
-              ]
             }
-          ],
-          "nsxClusterSpec": {
-            "nsxTClusterSpec": {
-              "geneveVlanId": 0
-            }
-          }
-        }
-      }
-    ]
-  },
-  "domainId": ""
+        ]
+    },
+    "domainId": ""
 }

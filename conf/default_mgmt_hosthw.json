@@ -4,25 +4,25 @@
         "name": "host1",
         "cpus": 12,
         "mem": 96,
-        "disks": "16,90,600"
+        "disks": "32,60,600"
       },
       {
         "name": "host2",
         "cpus": 12,
         "mem": 96,
-        "disks": "16,90,600"
+        "disks": "32,60,600"
       },
       {
         "name": "host3",
         "cpus": 12,
         "mem": 96,
-        "disks": "16,90,600"
+        "disks": "32,60,600"
       },
 	  {
         "name": "host4",
         "cpus": 12,
         "mem": 96,
-        "disks": "16,90,600"
+        "disks": "32,60,600"
       }
     ]
 }

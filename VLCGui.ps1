@@ -1,8 +1,8 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v5 6/22/2023
+# VLC - Lab Constructor beta v5.1 12/11/2023
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com;
-# wlam@vmware.com;kgleed@vmware.com;tthompson@vmware.com
+# wlam@vmware.com
 # PLEASE See the included install guide PDF file for more info.
 ###################################################################
 param (
@@ -28,7 +28,7 @@ $logPathDir = New-Item -ItemType Directory -Path "$scriptDir\Logs" -Force
 $logfile = "$logPathDir\VLC-Log-$(get-date -format $global:dateFormat).txt"
 $tempDir = "Temp-$(Get-Date -Format $global:dateFormat)"
 
-$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v5.0 - Process Window'
+$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v5.1 - Process Window'
 $welcomeText =@"
 Welcome to:
 __     ______ _____ _          _      ____                _                   _             
@@ -193,12 +193,7 @@ Function SetFormValues ($formContent)
         $txtlabGateway.Text = $formContent.labGateway
         $txtLabDNS.Text = $formContent.labDNS
         $txtvSphereISOLoc.Text = $formContent.vSphereISOLoc
-        if ($global:Ways -match "expansion"){
-            $chkUseCBIso.Checked = $false
-            $chkUseCBIso.Enabled = $false
-        } else {
-            $chkUseCBIso.Checked = $formContent.UseCBIso
-        }
+        $chkUseCBIso.Checked = $formContent.UseCBIso
         $txtvmPrefix.Text = $formContent.nestedVMPrefix
 	    $txtMasterPass.Text = $formContent.masterPassword
         $txtBringupFile.Text = $formContent.VCFEMSFile
@@ -923,7 +918,7 @@ Function cbConfigurator
     $eth0AddressAdd = ""
     $ethMTUAdd = ""
 
-    $nicstoCreate =[Ordered]@{}
+    $nicstoCreate =@{}
     #Populate Network Info
     $nicstoCreate.Add("hostTep",@{gwip=$("$DhcpGateway/$DhcpSubnetCIDR");vlan=$DhcpVLANId})
     $nicstoCreate.Add("vsan",@{gwip=$("$vsanNetGateway/$vsanNetCIDR");vlan=$vsanNetVLAN})
@@ -1007,9 +1002,10 @@ Function cbConfigurator
     $replaceNet +="echo default-lease-time 600\;`n"
     $replaceNet +="echo max-lease-time 7200\;`n"
     $replaceNet +="echo `n"
-    $replaceNet +="echo subnet $CloudBuilderIPSubnet netmask $CloudBuilderSubnetMask {`n"
-    $replaceNet +="echo }`n"
-    $replaceNet +="echo `n"
+#Removed with 5.1 update to Photon 4
+#    $replaceNet +="echo subnet $CloudBuilderIPSubnet netmask $CloudBuilderSubnetMask {`n"
+#    $replaceNet +="echo }`n"
+#    $replaceNet +="echo `n"
     $replaceNet +="echo subnet $DhcpIPSubnet netmask $DhcpSubnetMask {`n"
     $replaceNet +="echo   range $($DhcpIPSubnet.Split('.')[0..2] -join '.').$($DhcpIPRange.Split('-')[0]) $($DhcpIPSubnet.Split('.')[0..2] -join '.').$($DhcpIPRange.Split('-')[1])\;`n"
     $replaceNet +="echo   option domain-name-servers $CloudBuilderIP\;`n"
@@ -1049,6 +1045,7 @@ Function cbConfigurator
     $replaceNet +="echo ExecStart=/sbin/ifconfig eth0 mtu 8940 up`n"
     $replaceNet +="echo ExecStart=/sbin/ifconfig eth0.$($mgmtVlanId) mtu 8940 up`n"
     $replaceNet +=$ethMTUAdd
+    $replaceNet +="echo  ExecStart=/bin/sleep 15`n"
     $replaceNet +="echo ExecStart=ip route add $($avnNets[0]) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
     $replaceNet +="echo ExecStart=ip route add $($avnNets[1]) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
     $replaceNet +="echo ExecStart=ip route add $($tzEgress) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
@@ -1143,7 +1140,7 @@ Function cbConfigurator
     $replaceDNS +="echo csv2[\`"$vcfDomainName.\`"] = \`"db.$vcfDomainName\`"`n"
     $replaceDNS +=")> /etc/mararc`n"
     $replaceDNS +="(`n"
-    $replaceDNS +="echo bind_address = \`"$CloudBuilderIP\`"`n"
+    $replaceDNS +="echo bind_address = \`"$CloudBuilderIP,$($($edgeNeighbors[0].peerIP).Split("/")[0])\`"`n"
     $replaceDNS +="echo chroot_dir = \`"/etc/maradns\`"`n"
     $replaceDNS +="echo upstream_servers = {}`n"
     if ($global:userOptions.labDNS -eq "") {
@@ -1161,10 +1158,10 @@ Function cbConfigurator
         $reverseAltSiteDNS = "$($revAltSiteArray[($revAltSiteArray.Count-1)..0] -join '.').in-addr.arpa."
         $replaceDNS +="echo upstream_servers[\`"$reverseAltSiteDNS\`"] = \`"$($global:userOptions.altSiteDNSServerIP)\`"`n"
         $replaceDNS +="echo upstream_servers[\`"$($global:userOptions.altSitevcfDomainName).\`"] = \`"$($global:userOptions.altSiteDNSServerIP)\`"`n"
-        $replaceDNS +="echo recursive_acl = \`"$($global:userOptions.altSitemgmtNetSubnet),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
+        $replaceDNS +="echo recursive_acl = \`"$($($edgeNeighbors[0].peerIP).Split("/")[0]),$($global:userOptions.altSitemgmtNetSubnet),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
 
     } else {
-        $replaceDNS +="echo recursive_acl = \`"$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
+        $replaceDNS +="echo recursive_acl = \`"$($($edgeNeighbors[0].peerIP).Split("/")[0]),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
     }
     $replaceDNS +="echo filter_rfc1918 = 0`n"
     $replaceDNS +=")> /etc/dwood3rc`n"
@@ -1242,7 +1239,7 @@ Function cbConfigurator
     $replaceDNS +="/sbin/chkconfig vaos off`n"
     $replaceDNS +="rm /opt/vmware/etc/init.d/vamitty.conf`n"
     #$replaceDNS +="rm -rf /usr/lib/systemd/system/getty@tty1.service.d`n"
-    $replaceDNS +="echo -e 'Cloudbuilder customized by \e[37;44mVLC 5.0\e[0m | \e[30;102mMgmt IP: $CloudBuilderIP\e[0m' >> /etc/issue`n"
+    $replaceDNS +="echo -e 'Cloudbuilder customized by \e[37;44mVLC 5.1\e[0m | \e[30;102mMgmt IP: $CloudBuilderIP\e[0m' >> /etc/issue`n"
     $replaceDNS +="shutdown -r`n"
     $replaceDNS +="END`n"
 
@@ -1447,7 +1444,7 @@ function setFormControls ($formway)
                         $txtBringUpFile.Enabled = $true
                         $lblBringUpFile.visible = $true
                         $txtBringUpFile.visible = $true
-                        $txtBringUpFile.Text = "$scriptDir\NOLIC-5.0TMM.ems.json"
+                        $txtBringUpFile.Text = "$scriptDir\NOLIC-5.1TMM.ems.json"
 
                         $lblMgmtNetVLAN.Enabled = $false
                         $txtMgmtNetVLAN.Enabled = $false
@@ -1663,8 +1660,8 @@ function configDrsHACluster ($cluster){
     $spec = New-Object VMware.Vim.ClusterConfigSpecEx  
     $spec.dasConfig = New-Object VMware.Vim.ClusterDasConfigInfo  
     $spec.dasConfig.vmMonitoring = "vmMonitoringDisabled"  
-    $spec.drsConfig = New-Object VMware.Vim.ClusterDrsConfigInfo
-    $spec.drsConfig.vmotionRate = 5
+    #$spec.drsConfig = New-Object VMware.Vim.ClusterDrsConfigInfo
+    #$spec.drsConfig.vmotionRate = 5
     $cluster.ExtensionData.ReconfigureComputeResource($spec, $true)  
 }
 function sddcTokenRefresh ($sddcMgrIP,$apiTokens) {
@@ -1716,7 +1713,7 @@ function sddcTokenPairCreate ($sddcMgrIP, $userName, $passWord) {
     }
 }
 
-function sddcGetEntity ($sddcMgrIP, $apiTokens, [ValidateSet("edge-clusters","clusters","domains","avns","network-pools","hosts")]$entityType) {
+function sddcGetEntity ($sddcMgrIP, $apiTokens, [ValidateSet("edge-clusters","clusters","domains","avns","network-pools","hosts","personalities")]$entityType) {
     $apiCall = 0
     while ($apiCall -ne $null) {
     try {
@@ -1744,7 +1741,7 @@ function sddcGetEntity ($sddcMgrIP, $apiTokens, [ValidateSet("edge-clusters","cl
                     logger "Token Expired $(get-date -Format hh:mm:ss)"
                     $apiTokens = $(sddcTokenRefresh -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens)
                 }
-            } elseif ($($Error[0]) -match "502") {
+            } elseif ($($Error[0]) -match "502" -or $($Error[0]) -match "500" ) {
                 logger "Waiting for NGINX to fully start"
                 sleep 10
             }
@@ -1753,7 +1750,7 @@ function sddcGetEntity ($sddcMgrIP, $apiTokens, [ValidateSet("edge-clusters","cl
 
     }
 } 
-function sddcCreateEntity ($sddcMgrIP, $apiTokens, $payLoad, [ValidateSet("edge-clusters","clusters","domains","avns","hosts","network-pools")]$entityType) {
+function sddcCreateEntity ($sddcMgrIP, $apiTokens, $payLoad, [ValidateSet("edge-clusters","clusters","domains","avns","hosts","network-pools","personalities")]$entityType) {
     $apiCall = 0
     while ($apiCall -ne $null) {
             try {
@@ -1770,7 +1767,7 @@ function sddcCreateEntity ($sddcMgrIP, $apiTokens, $payLoad, [ValidateSet("edge-
             } catch {
                 $apiCall++
 
-                if ($_.Exception.Response.StatusCode.value__ -eq 401)
+                if ($_.Exception.Response.StatusCode.value__ -eq 401 -or $_.Exception.Response.StatusCode.value__ -eq 500)
                 {
                     if ($apiCall -gt 5) {
                         logger "Failed sddcCreateEntity $apicall times, terminating."
@@ -1870,7 +1867,13 @@ function sddcTaskPoll ($sddcMgrIP, $apiTokens, $taskId) {
                         logger "Complete!"
                         $apiCall = $null
                     } else {
-                        $currTask = $taskInfo | Select -ExpandProperty subTasks | where-object {$_.status -eq "IN_PROGRESS"} | Select name -First 1
+                        if ( $taskInfo.psobject.properties.match('subTasks').Count) {
+                        
+                            $currTask = $taskInfo | Select -ExpandProperty subTasks | where-object {$_.status -eq "IN_PROGRESS"} | Select name -First 1
+                            } else {
+                            $currTask = $taskInfo
+                            } 
+                        
                         if ($($currTask.name) -ne $thisTask -and $($currTask.name) -ne "") {
                             logger "Current task: $($currTask.name)"
                             $thisTask = $($currTask.name)
@@ -1976,6 +1979,59 @@ function vcGetObject ($vcServer,$vcToken, [ValidateSet("vm","cluster","namespace
     }
 }
 
+function vclsFix ($vcServer, $vcUser, $vcPass, $hostUser, $hostPass){
+
+    $vm = ""
+    $vCLSvm = ""
+    foreach ($vc in $vcServer){
+        
+        connect-viserver -server $vc -User $vcUser -password $vcPass
+        logger "Setting permissions for vCLS manipulation"
+        $newPrivs = $(get-VIRole -name Admin).ExtensionData.Privilege | where {$_ -match "VirtualMachine.Config"}
+        $newPrivs | foreach {Set-VIRole -Role vCLSadmin -AddPrivilege (Get-VIPrivilege -id $_)}
+        logger "Finding vCLS VM"
+        $vms = get-vm -name vCLS* | Where-Object {$_.PowerState -match "PoweredOff"}
+        if ($vms -ne $null){
+                 do {
+                        foreach($vm in $vms) {
+                            $vCLSvm = get-vm -name vCLS* | Where-Object {$_.PowerState -match "PoweredOff"}
+                            logger "Waiting for EVC mode to be set by vCenter"
+                            $evcChkCnt = 0
+                            
+                            do {
+
+                                $evcSet = $(Get-VM $vCLSvm | Select -ExpandProperty ExtensionData | Select -ExpandProperty Runtime | Select -ExpandProperty FeatureMask).Count
+                                logger "Featuremask count for $vCLSvm is currently $evcSet"
+                                Sleep 10
+                                $evcChkCnt++
+
+                            } until ($evcSet -gt 0 -or $evcChkCnt -eq 5)
+
+                            logger "Setting HW version 14 and disabling EVC mode on vCLS VM"
+                            $vCLSvm | Set-VM -Version v14 -Confirm:$false
+                            $vCLSvm.ExtensionData.ApplyEvcModeVM_Task($null,$true)
+                            $poweredOn = $false
+                            do {
+                                logger "Waiting for VM to power on"   
+                                $thisvCLSvm = get-vm -name $vCLSvm.Name
+                                if ($thisvCLSvm.PowerState -match "PoweredOn") { $poweredOn = $true }
+                                sleep 10
+                            } until ($poweredOn)
+                            #$vCLSvm | Start-VM
+                            logger "Waiting for additional vCLS VM to be created"
+                            sleep 30
+                            logger "Finding additional vCLS VM's"
+                            $vm = get-vm -name vCLS* | Where-Object {$_.PowerState -match "PoweredOff"}
+                        }
+                    } while ($vm)
+        } else {
+            logger "vCLS VM's have all been created/configured and started on $vc"
+        }
+        
+        disconnect-viserver * -Confirm:$false -Force | Out-Null
+    }
+}
+
 #endregion Functions
 
 #Clean Temp / Initialize Log and logging window
@@ -1996,7 +2052,7 @@ if ($isCLI) {
 
     $iniContent = @(Get-Content $iniConfigFile) -match '\S'
     $global:userOptions += @{"internalSvcs" = "True"}
-    $global:userOptions += @{"guestOS" = "vmkernel65guest"}
+    $global:userOptions += @{"guestOS" = "otherGuest64"}
     $global:userOptions += @{"Typeguestdisk"="Thin"}
     $global:userOptions += @{"cbName"="CB-01a"}
     $global:Ways = "internalsvcs"
@@ -2102,7 +2158,7 @@ if ($isCLI) {
 "@
 #region formControls
             $frmVCFLCMain = New-Object system.Windows.Forms.Form
-            $frmVCFLCMain.Text = "VCF Lab Constructor beta 5.0"
+            $frmVCFLCMain.Text = "VCF Lab Constructor beta 5.1"
             $frmVCFLCMain.TopMost = $true
             $frmVCFLCMain.Width = 850
             $frmVCFLCMain.Height = 450
@@ -2112,11 +2168,9 @@ if ($isCLI) {
             $frmVCFLCMain.Controls.Add($mainMenu)
 
             (addMenuItem -ParentItem ([ref]$mainMenu) -ItemName 'mnuFile' -ItemText 'File' -ScriptBlock $null) | %{ 
-            $loadMenu=addMenuItem -ParentItem ([ref]$_) -ItemName 'mnuFileOpen' -ItemText 'Load' -ScriptBlock $sbLoadSettings; 
-            $saveMenu=addMenuItem -ParentItem ([ref]$_) -ItemName 'mnuFileSave' -ItemText 'Save' -ScriptBlock $sbSaveSettings; 
+            $null=addMenuItem -ParentItem ([ref]$_) -ItemName 'mnuFileOpen' -ItemText 'Load' -ScriptBlock $sbLoadSettings; 
+            $null=addMenuItem -ParentItem ([ref]$_) -ItemName 'mnuFileSave' -ItemText 'Save' -ScriptBlock $sbSaveSettings; 
             $null=addMenuItem -ParentItem ([ref]$_) -ItemName 'mnuFileExit' -ItemText 'Exit' -ScriptBlock $sbExit;} | Out-Null; 
-            $loadMenu[1].Enabled=$false
-            $saveMenu[1].Enabled=$false
 
             $pnlWaysPanel = New-Object System.Windows.Forms.Panel
             $pnlWaysPanel.Width = 425
@@ -2135,11 +2189,7 @@ if ($isCLI) {
             $btnWay1.location = new-object system.drawing.point(0,25)
             $btnWay1.Image = $(convert64Img $way2Img)
             $btnWay1.ImageAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-            $btnWay1.Add_Click({
-                setFormControls "internalsvcs"
-                $loadMenu[1].Enabled=$true
-                $saveMenu[1].Enabled=$true
-            })
+            $btnWay1.Add_Click({setFormControls "internalsvcs"})
             $btnWay1.Add_MouseHover($ShowTips)
             $pnlWaysPanel.Controls.Add($btnWay1)
 
@@ -2154,11 +2204,7 @@ if ($isCLI) {
             $btnWay2.Image = $(convert64Img $way1Img)
             $btnWay2.ImageAlign = [System.Drawing.ContentAlignment]::MiddleLeft
             $btnWay2.location = new-object system.drawing.point(0,155)
-            $btnWay2.Add_Click({
-                setFormControls "externalsvcs"
-                $loadMenu[1].Enabled=$true
-                $saveMenu[1].Enabled=$true
-            })
+            $btnWay2.Add_Click({setFormControls "externalsvcs"})
             $btnWay2.Add_MouseHover($ShowTips)
             $pnlWaysPanel.Controls.Add($btnWay2)
 
@@ -2173,11 +2219,7 @@ if ($isCLI) {
             $btnWay3.Image = $(convert64Img $way3Img)
             $btnWay3.ImageAlign = [System.Drawing.ContentAlignment]::MiddleLeft
             $btnWay3.location = new-object system.drawing.point(0,285)
-            $btnWay3.Add_Click({
-                setFormControls "expansion"
-                $loadMenu[1].Enabled=$true
-                $saveMenu[1].Enabled=$true
-            })
+            $btnWay3.Add_Click({setFormControls "expansion"})
             $btnWay3.Add_MouseHover($ShowTips)
             $pnlWaysPanel.Controls.Add($btnWay3)
 
@@ -2774,7 +2816,6 @@ if ($isCLI) {
             $comboBoxBuildOps.Location = New-Object System.Drawing.Point(200, 325) 
             $comboBoxBuildOps.Size = New-Object System.Drawing.Size(100, 10) 
             $comboBoxBuildOps.Items.add("WLD Domain") 
-            $comboBoxBuildOps.Items.add("ISOWLD Domain") 
             $comboBoxBuildOps.Items.add("Cluster") 
             $comboBoxBuildOps.Items.add("None") 
             $frmVCFLCMain.controls.Add($comboBoxBuildOps)
@@ -3012,7 +3053,7 @@ if ($isCLI) {
                             "Typeguestdisk"="Thin"
 	                        "ds"=$listDatastore.SelectedItem
                             "masterPassword"=$txtMasterPass.Text
-                            "guestOS"="vmkernel65guest"
+                            "guestOS"="otherGuest64"
                             "cbIPAddress"=$txtCBIP.Text 
                             "dnsServer"=$txtDNS.Text
                             "ntpServer"=$txtNTP.Text
@@ -3204,6 +3245,8 @@ $createHostCode = {
     # Install hot new VMXNET3s
 	New-NetworkAdapter -VM $VM_Name -NetworkName $netName -startConnected:$true -Type VMXNET3
 	New-NetworkAdapter -VM $VM_Name -NetworkName $netName -startConnected:$true -Type VMXNET3
+	New-NetworkAdapter -VM $VM_Name -NetworkName $netName -startConnected:$true -Type VMXNET3
+	New-NetworkAdapter -VM $VM_Name -NetworkName $netName -startConnected:$true -Type VMXNET3
 
 	write-host "Setting Guest OS Type"  -foreground green
     logger "Setting Guest OS Type" -logOnly
@@ -3326,7 +3369,7 @@ if ($userOptions.nestedVMPrefix.Length -gt 0) {
     $userOptions.nestedVMPrefix = $userOptions.nestedVMPrefix + "-"
 } 
 
-logger "----------------------Inputs------------------5.0----"
+logger "----------------------Inputs------------------5.1----"
 foreach ($uO in $global:userOptions.GetEnumerator() | Sort Name){logger $($uO.Key + "`t`t" + $uO.Value)}
 logger "--------------------END-Inputs-----------------------" 
 
@@ -3662,7 +3705,7 @@ logger "Setting VLC.cfg info...                "
 $kscfg="#VCF Scripted Nested Host Install`n"
 $kscfg+="vmaccepteula`n"
 $kscfg+="rootpw $masterPassword`n"
-$kscfg+="install --firstdisk --novmfsondisk --ignoreprereqwarnings --ignoreprereqerrors --forceunsupportedinstall`n"
+$kscfg+="install --firstdisk --novmfsondisk`n"
 $kscfg+="reboot`n"
 $kscfg+="`n"
 $kscfg+="%include /tmp/hostConfig`n"
@@ -3740,6 +3783,7 @@ if (!$isoDir) {
 
 Copy-DatastoreItem -Item ("$scriptDir\$tempDir\$currIso")  -Destination ("vsands:\ISO\" + $($userOptions.nestedVMPrefix) + "VLC_vSphere.iso") -Force
 Remove-PSDrive -Name "vsands"
+Disconnect-VIServer * -Force -Confirm:$false | Out-Null
 
 $hostJobs=@()
 $userOptions = $global:userOptions
@@ -3801,7 +3845,7 @@ logger "Total Time for Imaging: $($totalTime.Elapsed)"
 #endregion Cloud Builder Config
 #region Bringup
 If ([bool]$userOptions.bringupAfterBuild) {
-
+    #Read-host "Paused for bringup validation check"
     $x=0
     logger "Waiting for bringup to start"
     if ($global:psVer -lt 7) {
@@ -3894,8 +3938,8 @@ public static class Dummy {
         Method      = 'GET'
         ContentType = 'application/json'
         Credential = $cred
-    } 
-
+    }
+    $runvCLSFixOnce = 0
     do {
 
         $bringupExec = Invoke-RestMethod @bringupExecParms @global:skipSSLFlag
@@ -3930,6 +3974,18 @@ public static class Dummy {
 
             $currTask = $bringupExec | Select -ExpandProperty sddcSubTasks | where-object {$_.status -eq "IN_PROGRESS"} | Select name
 
+            #Address vCLS VM's not starting until after bringup
+            
+            if ($currTask.name -eq "Deploy NSX Manager" -and !$runvCLSFixOnce){
+                $managementVCIP = $($Global:bringupOptions | Select -ExpandProperty vCenterSpec | Select vcenterIp).vcenterIp
+                $ssoDomain = $($Global:bringUpOptions | Select -ExpandProperty pscSpecs | Select -ExpandProperty pscSsoSpec | Select ssoDomain -Unique).ssoDomain
+                $ssoAdminPassword = $($Global:bringUpOptions | Select -ExpandProperty pscSpecs | Select adminUserSsoPassword -Unique).adminUserSsoPassword
+                $ssoCredential = "administrator@$ssoDomain"
+                logger "Starting vCLS VM's to ensure additional VMs are spread across cluster"
+                vclsFix -vcServer $managementVCIP -vcUser $ssoCredential -vcPass $ssoAdminPassword -hostUser "root" -hostPass $($userOptions.masterPassword)
+                $runvCLSFixOnce = 1
+            }
+            
             if ($($currTask.name) -ne $thisTask -and $($currTask.name) -ne "") {
     
                 logger "Bringup current task: $($currTask.name)"
@@ -3949,15 +4005,13 @@ public static class Dummy {
     $domainManagercfg="echo `"$($userOptions.masterPassword)`" | sudo su - <<END`n"
     $domainManagercfg+="(`n"	
     $domainManagercfg+="echo \#VLC Lab sizing entries`n"
+    $domainManagercfg+="echo nsxt.manager.formfactor=medium`n"
     $domainManagercfg+="echo nsxt.manager.wait.minutes=45`n"
     $domainManagercfg+="echo nsxt.manager.cluster.size=1`n"
     $domainManagercfg+="echo nsxt.management.resources.validation.skip=true`n"
+    $domainManagercfg+="echo vc7.deployment.option=tiny`n"
     $domainManagercfg+=")>>/etc/vmware/vcf/domainmanager/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/lcm.core.manifest.poll.interval=300000/lcm.core.manifest.poll.interval=120000/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
-    $domainManagercfg += "sed -i 's/vrslcm.install.base.version=8.1.0-16776528/vrslcm.install.base.version=8.10.0-21331275/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
-    $domainManagercfg += "sed -i 's/vra.install.base.version=8.1.0-15986821//g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
-    $domainManagercfg += "sed -i 's/vrops.install.base.version=8.1.1-16522874//g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
-    $domainManagercfg += "sed -i 's/vrli.install.base.version=8.1.1-16281169//g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/vsan.healthcheck.enabled=true/vsan.healthcheck.enabled=false/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/vsan.hcl.update.enabled=true/vsan.hcl.update.enabled=false/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/vsan.precheck.enabled=true/vsan.precheck.enabled=false/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
@@ -3974,12 +4028,11 @@ public static class Dummy {
     $managementVCIP = $($Global:bringupOptions | Select -ExpandProperty vCenterSpec | Select vcenterIp).vcenterIp
     $mgmtClusterName = $($Global:bringupOptions | Select -ExpandProperty clusterSpec | Select clusterName).clusterName
     $nsxMgtVM = $($Global:bringupOptions | Select -ExpandProperty nsxtSpec | Select -ExpandProperty nsxtManagers | Select hostname).hostname 
-    $nsxEMSInfo = $Global:bringupOptions | Select -ExpandProperty nsxtSpec | Select vip, nsxtAdminPassword
     $ssoDomain = $($Global:bringUpOptions | Select -ExpandProperty pscSpecs | Select -ExpandProperty pscSsoSpec | Select ssoDomain -Unique).ssoDomain
     $ssoAdminPassword = $($Global:bringUpOptions | Select -ExpandProperty pscSpecs | Select adminUserSsoPassword -Unique).adminUserSsoPassword
     $ssoCredential = "administrator@$ssoDomain"
 
-    Disconnect-VIServer * -Force -Confirm:$false | Out-Null
+
 
     $i=1
     while ($i -lt 6) {
@@ -4017,7 +4070,6 @@ public static class Dummy {
     Get-VM -Server $conVcenter -Name $nsxMgtVM | Get-VMResourceConfiguration |Set-VMResourceConfiguration -MemReservationGB 0
     logger "Disabling VM Monitoring in HA and setting DRS to conservative" 
     configDrsHACluster $(Get-Cluster -Server $conVcenter -Name $mgmtClusterName)
-    Disconnect-VIServer * -Force -Confirm:$false | Out-Null
 
     logger "Waiting for SDDC Manager to come online"
     do {
@@ -4043,6 +4095,7 @@ public static class Dummy {
             }
         }
     } until($apiUp)
+
 }
 #endregion Bringup
 
@@ -4050,8 +4103,37 @@ public static class Dummy {
 
 
 if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild) {
-    $apiTokens = sddcTokenPairCreate -sddcMgrIP $sddcMgrIP -userName $ssoCredential -passWord $ssoAdminPassword
+
+    #Disable vSAN HCL warning from https://kb.vmware.com/s/article/2151813
+    logger "Disabling vSAN HCL Controller warning"
+    $vsanHealthCluster = (Get-Cluster -Name $mgmtClusterName).ExtensionData.MoRef
+    $vsanHealthView = Get-VsanView -Id "VsanVcClusterHealthSystem-vsan-cluster-health-system"
+    $vsanHealthView.VsanHealthSetVsanClusterSilentChecks($vsanHealthCluster,"controlleronhcl",$null)   
+    Disconnect-VIServer * -Force -Confirm:$false | Out-Null
+    
+    # Import Image into SDDC Manager (the task that runs during bringup doesn't seem to work)
     logger "Obtaining API Token from SDDC Manager"
+    $apiTokens = sddcTokenPairCreate -sddcMgrIP $sddcMgrIP -userName $ssoCredential -passWord $ssoAdminPassword
+    logger "Checking for vLCM cluster"
+    $clusterImageBased = $(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "clusters" | Select -ExpandProperty Elements | Select -ExpandProperty isImageBased)
+    if($clusterImageBased){
+        logger "Importing vLCM image to SDDC Manager"
+        $perParms = $(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "domains") | Select -ExpandProperty elements | Select -Property vcenters,clusters
+        $perPayload = @{name="VLC-Image";uploadMode="REFERRED";uploadSpecReferredMode=@{clusterId=$($perParms.clusters[0].id);vCenterId=$($perParms.vcenters[0].id)}}
+        $($perPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\perPayload-$(get-date -Format $global:dateFormat).json
+        $perTaskId = sddcCreateEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "personalities" -payLoad $($perPayload | ConvertTo-Json)
+        if ([string]::IsNullOrEmpty($perTaskId)) {
+            Logger "Unable to obtain Task ID for this operation, please check the VLC Logs and domainmanager logs for more info."
+            break
+        } else {
+            sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId $($perTaskId.id)
+        }
+        $vlcImageID = sddcGetEntity -sddcMgrIP 10.0.0.4 -apiTokens $sddcToken -entityType personalities | Select -ExpandProperty elements | select -ExpandProperty personalityId -First 1
+    }
+    # Ensure vCLS VM's are powered on and working
+    logger "Checking vCLS VM's to ensure they power up"
+    vclsFix -vcServer $managementVCIP -vcUser $ssoCredential -vcPass $ssoAdminPassword -hostUser "root" -hostPass $($userOptions.masterPassword)
+
 
     if ([bool]$global:userOptions.deployEdgeCluster) {
 
@@ -4084,22 +4166,12 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
             Get-VM -Name $($edgeNodeName.Split(".")[0]) | Get-VMResourceConfiguration | Set-VMResourceConfiguration -MemReservationGB 0 -CpuSharesLevel "Normal"
         }
         Disconnect-VIServer * -Force -Confirm:$false | Out-Null
-        $nsxCreds = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("admin:$($nsxEMSInfo.nsxtAdminPassword)"))
-        $authheader = "Basic " + $nsxCreds
-        $header =@{}
-        $header.Add("Authorization",$authHeader)
-        $edgeIDs = Invoke-RestMethod -Uri "https://$($nsxEMSInfo.vip)/api/v1/transport-nodes" -Headers $header | Select -ExpandProperty results | Where {$_.display_name -match "edge"} | Select node_id
-        foreach($nsxedge in $edgeIDs) {
-            $nsxUri = "https://$($nsxEMSInfo.vip)/api/v1/transport-nodes/$($nsxedge.node_id)`?action=refresh_node_configuration&resource_type=EdgeNode"
-            $return = Invoke-RestMethod -Uri $nsxUri -Headers $header -Method POST
-            logger "Resolving Edge Config API call: $return"
-        }
     }
     if ([bool]$global:userOptions.deployWldMgmt) {
         $failOut = $false
         $clSubURL = "https://wp-content.vmware.com/v2/latest/lib.json"
         $clDS = $($global:bringupOptions | Select -ExpandProperty vsanSpec | Select -ExpandProperty datastoreName)
-        $mgmtNetworkName = $($global:bringupOptions | Select-Object -ExpandProperty networkSpecs | Where-Object {$_.networkType -match "MANAGEMENT"} | Select -ExpandProperty portGroupKey)
+        $mgmtNetworkName = $($global:bringupOptions | Select-Object -ExpandProperty networkSpecs | Where-Object {$_.networkType -eq "MANAGEMENT"} | Select -ExpandProperty portGroupKey)
         logger "clDS: $clDS | MgmtNetName: $mgmtNetworkName"
         $vcCreds = New-Object System.Management.Automation.PSCredential($ssoCredential,$(ConvertTo-SecureString $ssoAdminPassword -AsPlainText -Force))
         do {           
@@ -4139,7 +4211,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
             logger "Getting Storage Policy ID: $tzStoragePolicyID"
             ### get VDS and portgroup info
             #dvsID
-            $tzDVSwitch = Get-VDSwitch | Select-Object -ExpandProperty Key
+            $tzDVSwitch = Get-VDSwitch -Id $(Get-virtualnetwork -name $mgmtNetworkName | Select -ExpandProperty ExtensionData | Select -ExpandProperty Config | Select -ExpandProperty DistributedVirtualSwitch) | Select -ExpandProperty Key
             logger "Getting DVS ID (key): $tzDVSwitch"
             #mgmtNetID
             $tzMgmtNetID = Get-virtualnetwork -name $mgmtNetworkName | select -ExpandProperty extensiondata | select -ExpandProperty key
@@ -4147,6 +4219,8 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
             ### get Edge Cluster info from after edge creation
             $tzVcToken = vcAuthToken -vcServer $managementVCIP -vcCreds $vcCreds
             $tzEdgeClusterID = $(vcGetObject -vcServer $managementVCIP -vcToken $tzVcToken -entityType namespace-management/edge-cluster-compatibility -tzDVSwitch $tzDVSwitch -tzCluster $tzCluster) | Select -ExpandProperty edge_cluster
+            ### WLD MGMT does not like using the same IP for GW and worker DNS, using one of the Edge uplink GW's as worker DNS for temporary fix. 
+            $tzWorkerDNS = $($edgeClusterPayload.edgeNodeSpecs | Select -ExpandProperty uplinkNetwork | Select -ExpandProperty peerIP -First 1).Split("/")[0]
             logger "Getting Edge Cluster ID: $tzEdgeClusterID"
             ### Load Tanzu API JSON for customization
             logger "Load Workload Management API JSON for customization"
@@ -4154,7 +4228,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
             $tzPayload.image_storage.storage_policy = $tzStoragePolicyID
             $tzPayload.ncp_cluster_network_spec.nsx_edge_cluster = $tzEdgeClusterID
             $tzPayload.ncp_cluster_network_spec.cluster_distributed_switch = $tzDVSwitch
-            $tzPayload | ForEach-Object {$_.worker_DNS=@("$($global:userOptions.dnsServer)")}
+            $tzPayload | ForEach-Object {$_.worker_DNS=@("$tzWorkerDNS")}
             $tzPayload | ForEach-Object {$_.master_DNS=@("$($global:userOptions.dnsServer)")}
             $tzPayload | ForEach-Object {$_.master_NTP_servers=@("$($global:userOptions.ntpServer)")}
             $tzPayload | ForEach-Object {$_.master_DNS_search_domains=@("$($global:userOptions.vcfDomainName)")}
@@ -4272,6 +4346,8 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                 $clusterPayload = $(get-content $scriptdir\automated_api_jsons\CLUSTER_API.json | ConvertFrom-JSON)
                 logger "Set Domain ID"
                 $clusterPayload.domainId = $sddcDomainID
+                logger "Set Image ID"
+                $clusterPayload.computeSpec | Select -ExpandProperty clusterSpecs | foreach {$_.clusterImageId = $vlcImageID} 
                 logger "Set licenses"
                 $clusterPayload.computeSpec.clusterSpecs.hostSpecs | foreach {$_.licenseKey = $global:bringUpOptions.esxLicense}
                 $clusterPayload.computeSpec.clusterSpecs.datastoreSpec.vsanDatastoreSpec.licenseKey = ($global:bringUpOptions.vsanSpec | Select -ExpandProperty licenseFile)
@@ -4288,14 +4364,14 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                 } else {
                     sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId ($clusterCreateTask.id)
                 }
-            } elseif ($($global:userOptions.buildOps -match "WLD Domain") -or $($global:userOptions.buildOps -match "ISOWLD Domain")) {
+                logger "Checking vCLS VM's to ensure they power up"
+                vclsFix -vcServer $managementVCIP -vcUser $ssoCredential -vcPass $ssoAdminPassword -hostUser "root" -hostPass $($userOptions.masterPassword)
+            } elseif ($($global:userOptions.buildOps -match "WLD Domain")) {
                 #Build WLD
                 logger "Loading DOMAIN json file"
-                if ($($global:userOptions.buildOps -match "ISOWLD Domain")) {
-                    $wldDomainPayload= $(get-content $scriptdir\automated_api_jsons\ISOWLD_DOMAIN_API.json | ConvertFrom-JSON)
-                } else {
-                    $wldDomainPayload= $(get-content $scriptdir\automated_api_jsons\WLD_DOMAIN_API.json | ConvertFrom-JSON)
-                }
+                $wldDomainPayload= $(get-content $scriptdir\automated_api_jsons\WLD_DOMAIN_API.json | ConvertFrom-JSON)
+                logger "Set Image ID"
+                $wldDomainPayload.computeSpec | Select -ExpandProperty clusterSpecs | foreach {$_.clusterImageId = $vlcImageID} 
                 logger "Set licenses"
                 #Host
                 $wldDomainPayload.computeSpec.clusterSpecs.hostSpecs | foreach {$_.licenseKey = $global:bringUpOptions.esxLicense}
@@ -4316,7 +4392,9 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                 break
                 } else {
                     sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId ($wldDomainCreateTask.id)
-                }            
+                }
+                logger "Checking vCLS VM's to ensure they power up"
+                vclsFix -vcServer $($wldDomainPayload.vcenterSpec | Select -Expandproperty networkDetailsSpec | Select -Expandproperty dnsName) -vcUser $ssoCredential -vcPass $ssoAdminPassword -hostUser "root" -hostPass $($userOptions.masterPassword)           
             }
         }
 

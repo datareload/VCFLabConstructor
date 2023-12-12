@@ -17,6 +17,7 @@
     "clusterSpecs": [
       {
         "name": "wld01-c01",
+	"clusterImageId": "",
         "hostSpecs": [
           {
             "id": "",
@@ -30,6 +31,14 @@
                 {
                   "id": "vmnic1",
                   "vdsName": "wld01-c01-vds01"
+                },
+                {
+                  "id": "vmnic2",
+                  "vdsName": "wld01-c01-vsan-vds02"
+                },
+                {
+                  "id": "vmnic3",
+                  "vdsName": "wld01-c01-vsan-vds02"
                 }
               ]
             }
@@ -46,6 +55,14 @@
                 {
                   "id": "vmnic1",
                   "vdsName": "wld01-c01-vds01"
+                },
+                {
+                  "id": "vmnic2",
+                  "vdsName": "wld01-c01-vsan-vds02"
+                },
+                {
+                  "id": "vmnic3",
+                  "vdsName": "wld01-c01-vsan-vds02"
                 }
               ]
             }
@@ -62,6 +79,14 @@
                 {
                   "id": "vmnic1",
                   "vdsName": "wld01-c01-vds01"
+                },
+                {
+                  "id": "vmnic2",
+                  "vdsName": "wld01-c01-vsan-vds02"
+                },
+                {
+                  "id": "vmnic3",
+                  "vdsName": "wld01-c01-vsan-vds02"
                 }
               ]
             }
@@ -78,6 +103,12 @@
           "vdsSpecs": [
             {
               "name": "wld01-c01-vds01",
+              "nsxtSwitchConfig" : {
+              	  "transportZones" : [ {
+              	  	"name" : "wld01-c01-vds01-pg-overlay01",
+              	  	"transportType" : "OVERLAY"
+                  } ]
+	       },
               "portGroupSpecs": [
                 {
                   "name": "wld01-c01-vds01-pg-mgmt",
@@ -86,12 +117,17 @@
                 {
                   "name": "wld01-c01-vds01-pg-vmotion",
                   "transportType": "VMOTION"
-                },
-                {
-                  "name": "wld01-c01-vds01-pg-vsan",
-                  "transportType": "VSAN"
                 }
               ]
+	    },
+	    {
+              "name": "wld01-c01-vsan-vds02",
+              "portGroupSpecs": [		
+                {
+                  "name": "wld01-c01-vds02-pg-vsan",
+                  "transportType": "VSAN"
+                }
+	      ]
 	    }
            ],
            "nsxClusterSpec": {

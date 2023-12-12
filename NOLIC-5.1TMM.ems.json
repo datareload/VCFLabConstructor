@@ -1,5 +1,5 @@
 {
-  "subscriptionLicensing": false,
+    "subscriptionLicensing": false,
   "skipEsxThumbprintValidation": true,
   "managementPoolName": "mgmt-networkpool",
   "sddcManagerSpec": {
@@ -67,11 +67,24 @@
         "uplink1",
         "uplink2"
       ]
+    },
+    {
+      "networkType": "VM_MANAGEMENT",
+      "subnet": "10.0.0.0/24",
+      "gateway": "10.0.0.221",
+      "vlanId": "10",
+      "mtu": "9000",
+      "portGroupKey": "sddc-vds01-vmmgmt",
+      "standbyUplinks":[],
+      "activeUplinks":[
+        "uplink1",
+        "uplink2"
+      ]
     }
   ],
   "nsxtSpec":
   {
-    "nsxtManagerSize": "small",
+    "nsxtManagerSize": "medium",
     "nsxtManagers": [
       {
           "hostname": "nsx-mgmt-1",
@@ -81,12 +94,6 @@
     "rootNsxtManagerPassword": "VMware123!VMware123!",
     "nsxtAdminPassword": "VMware123!VMware123!",
     "nsxtAuditPassword": "VMware123!VMware123!",
-    "rootLoginEnabledForNsxtManager": "true",
-    "sshEnabledForNsxtManager": "true",
-    "overLayTransportZone": {
-        "zoneName": "mgmt-domain-tz-overlay01",
-        "networkName": "netName-overlay"
-    },
     "vip": "10.0.0.20",
     "vipFqdn": "nsx-mgmt",
     "nsxtLicense": "<INSERT NSX LIC>",
@@ -95,6 +102,9 @@
   "vsanSpec": {
       "vsanDedup": "false",
       "licenseFile": "<INSERT VSAN LIC>",
+      "esaConfig": {
+        "enabled": false
+      },
       "datastoreName": "vcf-vsan"
   },
   "dvsSpecs": [
@@ -108,7 +118,7 @@
       "networks":[
         "MANAGEMENT",
         "VMOTION",
-        "VSAN"
+        "VM_MANAGEMENT"
       ],
       "niocSpecs":[
         {
@@ -148,13 +158,43 @@
           "value":"LOW"
         }
       ],
-      "isUsedByNsxt": true
+      "nsxtSwitchConfig": {
+        "transportZones": [ {
+          "name": "mgmt-domain-tz-overlay01",
+          "transportType": "OVERLAY"
+        },
+        {
+          "name": "mgmt-domain-tz-vlan01",
+          "transportType": "VLAN"
+        }
+        ]
+      }
+    },
+    {
+      "dvsName": "mgmt-vds02",
+      "vmnics": [
+        "vmnic2",
+        "vmnic3"
+      ],
+      "mtu": 9000,
+      "networks":[
+        "VSAN"
+      ],
+      "nsxtSwitchConfig": {
+        "transportZones": [
+        {
+          "name": "mgmt-domain-tz-vlan02",
+          "transportType": "VLAN"
+        }
+        ]
+      }
     }
   ],
   "clusterSpec":
   {
     "clusterName": "mgmt-cluster-01",
     "clusterEvcMode": "",
+    "clusterImageEnabled": true,
     "vmFolders": {
       "MANAGEMENT": "mgmt-domain-fd-mgmt",
       "NETWORKING": "mgmt-domain-fd-nsx",
