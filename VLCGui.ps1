@@ -431,7 +431,7 @@ Function ValidateFormValues
                 $viConnection = connectVI -vmHost $txtHostIP.Text -vmUser $txtUsername.Text -vmPassword $txtPassword.Text               
                 logger "Validating Free Space on Datastore 800GB or more for deployment, 300GB or more for Expansion."
                 $vmDSToTest = $listDatastore.SelectedItem
-                $vmDSFree = $(Get-DataStore $vmDSToTest | Select FreeSpaceGB).FreeSpaceGB
+                $vmDSFree = $(Get-DataStore $vmDSToTest | Select-Object FreeSpaceGB).FreeSpaceGB
                 if ($global:Ways -match "expansion")
                     {
                         if ($vmDSFree -le 300)
@@ -709,12 +709,12 @@ Function Get-VIInfo($vmHost, $vmUser, $vmPassword)
 #Begin Validation of Virtual Switch MTU, Security Policy                       
             if ($viValidated) {
                 $vSwitches = ""
-                $vSwitches = $(Get-VirtualPortGroup | Select VirtualSwitch -Unique).VirtualSwitch
+                $vSwitches = $(Get-VirtualPortGroup | Select-Object VirtualSwitch -Unique).VirtualSwitch
                 ForEach ($switch in $vSwitches){           
                     if ($switch.Mtu -lt 8940) {  
                         logger "$($switch.Name) MTU of $($switch.Mtu) is not valid for VLC, must be 8940 or higher."
                         logger "Networks from this switch will not be available as deploy target until corrected"
-                        $invalidNets = $vmNetworks | Where VirtualSwitch -ilike $switch
+                        $invalidNets = $vmNetworks | Where-Object VirtualSwitch -ilike $switch
                         ForEach ($netWk in $invalidNets){$vmNetworks.Remove($netWk)}
                         $vSwitchMTUFail = $true
                     }
@@ -772,7 +772,7 @@ function extractvSphereISO ($vSphereISOPath)
              do {
                 $i++
                 $volume = Get-DiskImage -ImagePath $mount.ImagePath | Get-Volume
-                sleep 5
+                Start-Sleep 5
                 $source = $volume.DriveLetter
              } until($i -gt 10 -Or $source)
              if (! $source) {
@@ -785,7 +785,7 @@ function extractvSphereISO ($vSphereISOPath)
              logger "Extracting '$vsphereISOPath' mounted on '$source' to '$folder'..."
             
              $params = @{Path = $source + ":\*"; Destination = $folder; Recurse = $true; Force = $true;}
-             cp @params
+             Copy-Item @params
              $hide = Dismount-DiskImage -ImagePath "$vSphereISOPath"
              logger "Copy complete"
         }
@@ -830,13 +830,13 @@ Param(
                     [Parameter(Mandatory=$true, 
                      ValueFromPipelineByPropertyName=$true, 
                      Position=1)] 
-                    [validatescript({(([system.net.ipaddress]($_ -split '/'|select -first 1)).AddressFamily -match 'InterNetwork') -and (0..32 -contains ([int]($_ -split '/'|select -last 1) )) })] 
+                    [validatescript({(([system.net.ipaddress]($_ -split '/'|Select-Object -first 1)).AddressFamily -match 'InterNetwork') -and (0..32 -contains ([int]($_ -split '/'|Select-Object -last 1) )) })] 
                     [string]$Cidr="" 
     ) 
 Begin{ 
-        [int]$BaseAddress=[System.BitConverter]::ToInt32((([System.Net.IPAddress]::Parse(($cidr -split '/'|select -first 1))).GetAddressBytes()),0) 
+        [int]$BaseAddress=[System.BitConverter]::ToInt32((([System.Net.IPAddress]::Parse(($cidr -split '/'|Select-Object -first 1))).GetAddressBytes()),0) 
         [int]$Address=[System.BitConverter]::ToInt32(([System.Net.IPAddress]::Parse($ipaddress).GetAddressBytes()),0) 
-        [int]$mask=[System.Net.IPAddress]::HostToNetworkOrder(-1 -shl (32 - [int]($cidr -split '/' |select -last 1))) 
+        [int]$mask=[System.Net.IPAddress]::HostToNetworkOrder(-1 -shl (32 - [int]($cidr -split '/' |Select-Object -last 1))) 
 } 
 Process{ 
         if( ($BaseAddress -band $mask) -eq ($Address -band $mask)) 
@@ -874,19 +874,19 @@ Function cbConfigurator
     $mgmtVlanId = $userOptions.mgmtNetVlan
 
     $dnsIPFQDNs = compileDNSRecords
-    [Net.IPAddress]$DhcpSubnetMask = (('1'*$DhcpSubnetCIDR+'0'*(32-$DhcpSubnetCIDR)-split'(.{8})')-ne''|%{[convert]::ToUInt32($_,2)})-join'.'
+    [Net.IPAddress]$DhcpSubnetMask = (('1'*$DhcpSubnetCIDR+'0'*(32-$DhcpSubnetCIDR)-split'(.{8})')-ne''|ForEach-Object{[convert]::ToUInt32($_,2)})-join'.'
     $DhcpIPSubnet = $($DhcpGateway.ToString().Split('.')[0..2] -join '.') + ".0"
-    $DhcpVLANId = $($bringupObject | select -ExpandProperty nsxtSpec | Select -ExpandProperty transportVlanId)
-    [Net.IPAddress]$CloudBuilderSubnetMask = (('1'*$CloudBuilderCIDR+'0'*(32-$CloudBuilderCIDR)-split'(.{8})')-ne''|%{[convert]::ToUInt32($_,2)})-join'.'
+    $DhcpVLANId = $($bringupObject | Select-Object -ExpandProperty nsxtSpec | Select-Object -ExpandProperty transportVlanId)
+    [Net.IPAddress]$CloudBuilderSubnetMask = (('1'*$CloudBuilderCIDR+'0'*(32-$CloudBuilderCIDR)-split'(.{8})')-ne''|ForEach-Object{[convert]::ToUInt32($_,2)})-join'.'
     [Net.IPAddress]$CloudBuilderIPSubnet =  ($([Net.IPAddress]$CloudBuilderIP).address -band ([Net.IPAddress]$CloudBuilderSubnetMask).address)
-    $revArray = $CloudBuilderIP.ToString().Split(".") | select -first 3
+    $revArray = $CloudBuilderIP.ToString().Split(".") | Select-Object -first 3
     $reverseDNS = "$($revArray[($revArray.Count-1)..0] -join '.').in-addr.arpa."
-    $vsanNetCIDR = $($bringupObject.networkSpecs| where { $_.networkType -match "VSAN" } | Select -ExpandProperty subnet).split("/")[1]
-	$vsanNetGateway = $($bringupObject.networkSpecs| where { $_.networkType -match "VSAN" } | Select -ExpandProperty gateway)
-    $vsanNetVLAN = $($bringupObject.networkSpecs| where { $_.networkType -match "VSAN" } | Select -ExpandProperty vlanId)
-    $vmotionNetCIDR = $($bringupObject.networkSpecs| where { $_.networkType -match "VMOTION" } | Select -ExpandProperty subnet).split("/")[1]
-	$vmotionNetGateway = $($bringupObject.networkSpecs| where { $_.networkType -match "VMOTION" } | Select -ExpandProperty gateway)
-    $vmotionNetVLAN = $($bringupObject.networkSpecs| where { $_.networkType -match "VMOTION" } | Select -ExpandProperty vlanId)
+    $vsanNetCIDR = $($bringupObject.networkSpecs| Where-Object-Object { $_.networkType -match "VSAN" } | Select-Object -ExpandProperty subnet).split("/")[1]
+	$vsanNetGateway = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VSAN" } | Select-Object -ExpandProperty gateway)
+    $vsanNetVLAN = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VSAN" } | Select-Object -ExpandProperty vlanId)
+    $vmotionNetCIDR = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VMOTION" } | Select-Object -ExpandProperty subnet).split("/")[1]
+	$vmotionNetGateway = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VMOTION" } | Select-Object -ExpandProperty gateway)
+    $vmotionNetVLAN = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VMOTION" } | Select-Object -ExpandProperty vlanId)
 #AVN Related CloudBuilder Config
     $avnSpec = Get-Content "$scriptDir\automated_api_jsons\NSX_AVN_API.json" | ConvertFrom-JSON
     $avnNetSpecs = $avnSpec | Select -ExpandProperty avns
@@ -1343,7 +1343,7 @@ Function compileDNSRecords
     $global:bringupOptions | Select -ExpandProperty sddcManagerSpec | ForEach-Object -Process {$dnsFQDNs.add($_.hostname,$_.ipAddress)}
     #NSX
     $global:bringupOptions | Select -ExpandProperty nsxtSpec | Select vipFQDN, vip | ForEach-Object -Process {$dnsFQDNs.add($_.vipFqdn,$_.vip)}
-    $global:bringupOptions | Select -ExpandProperty nsxtSpec | Select -ExpandProperty nsxtManagers | ForEach-Object -Process {$dnsFQDNs.add($_.hostname,$_.ip)}
+    $global:bringupOptions | Select -ExpandProperty nsxtSpec | Select-Object -ExpandProperty nsxtManagers | ForEach-Object -Process {$dnsFQDNs.add($_.hostname,$_.ip)}
     return $dnsFQDNs
 
 }
