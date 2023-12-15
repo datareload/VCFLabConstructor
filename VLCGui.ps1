@@ -850,6 +850,21 @@ Process{
 } 
 end { return $status } 
 } 
+Function addDhcpdScope {
+
+    Param ($scSubnet,$scSubnetMask,$scRouter,$scInt)
+
+    $scShortSub = $scSubnet.Substring(0,$($scSubnet.LastIndexOf(".")+1))
+    $scReturn =""
+    $scReturn += "echo subnet $scSubnet netmask $scSubnetMask {`n"
+    $scReturn += "echo    interface \`"$scInt\`"\;`n"
+    $scReturn += "echo    range $scShortSub`200 $scShortSub`254\;`n"
+    $scReturn += "echo    option domain-name-servers $($userOptions.dnsServer)\;`n"
+    $scReturn += "echo    option routers $scRouter\;`n"
+    $scReturn += "echo }`n"
+
+    return $scReturn
+}
 Function cbConfigurator
 {
 
@@ -881,7 +896,7 @@ Function cbConfigurator
     [Net.IPAddress]$CloudBuilderIPSubnet =  ($([Net.IPAddress]$CloudBuilderIP).address -band ([Net.IPAddress]$CloudBuilderSubnetMask).address)
     $revArray = $CloudBuilderIP.ToString().Split(".") | Select-Object -first 3
     $reverseDNS = "$($revArray[($revArray.Count-1)..0] -join '.').in-addr.arpa."
-    $vsanNetCIDR = $($bringupObject.networkSpecs| Where-Object-Object { $_.networkType -match "VSAN" } | Select-Object -ExpandProperty subnet).split("/")[1]
+    $vsanNetCIDR = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VSAN" } | Select-Object -ExpandProperty subnet).split("/")[1]
 	$vsanNetGateway = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VSAN" } | Select-Object -ExpandProperty gateway)
     $vsanNetVLAN = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VSAN" } | Select-Object -ExpandProperty vlanId)
     $vmotionNetCIDR = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VMOTION" } | Select-Object -ExpandProperty subnet).split("/")[1]
@@ -889,23 +904,23 @@ Function cbConfigurator
     $vmotionNetVLAN = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VMOTION" } | Select-Object -ExpandProperty vlanId)
 #AVN Related CloudBuilder Config
     $avnSpec = Get-Content "$scriptDir\automated_api_jsons\NSX_AVN_API.json" | ConvertFrom-JSON
-    $avnNetSpecs = $avnSpec | Select -ExpandProperty avns
+    $avnNetSpecs = $avnSpec | Select-Object -ExpandProperty avns
     $avnNets = foreach ($avn in $avnNetSpecs) { "$($avn.subnet)/$(SubnetToCidr($($avn.subnetMask)))" }
-    $regionSubnet = $avnNetSpecs | Select subnet,subnetMask,regionType | Where-Object -Property regionType -Like 'REGION_*'
-    $xregionSubnet = $avnNetSpecs | Select subnet,subnetMask,regionType | Where-Object -Property regionType -Match 'X_REGION'
-    $revRegionArray = $($regionSubnet).subnet.ToString().Split(".") | Select -First 3
+    $regionSubnet = $avnNetSpecs | Select-Object subnet,subnetMask,regionType | Where-Object -Property regionType -Like 'REGION_*'
+    $xregionSubnet = $avnNetSpecs | Select-Object subnet,subnetMask,regionType | Where-Object -Property regionType -Match 'X_REGION'
+    $revRegionArray = $($regionSubnet).subnet.ToString().Split(".") | Select-Object -First 3
     $revRegionDNS = "$($revRegionArray[($revRegionArray.Count-1)..0] -join '.').in-addr.arpa."
-    $revxRegionArray = $($xregionSubnet).subnet.ToString().Split(".") | Select -First 3
+    $revxRegionArray = $($xregionSubnet).subnet.ToString().Split(".") | Select-Object -First 3
     $revxRegionDNS = "$($revxRegionArray[($revxRegionArray.Count-1)..0] -join '.').in-addr.arpa."
 #Tanzu Related Cloudbuilder Config
     $tzSpec = Get-Content "$scriptDir\automated_api_jsons\WORKLOADMGMT_API.json" | ConvertFrom-JSON
-    $tzIngress = $tzSpec | Select -ExpandProperty ncp_cluster_network_spec | Select -ExpandProperty ingress_cidrs | ForEach-Object {$_.address + "/" + $_.prefix}
-    $tzEgress = $tzSpec | Select -ExpandProperty ncp_cluster_network_spec | Select -ExpandProperty egress_cidrs | ForEach-Object {$_.address + "/" + $_.prefix}
+    $tzIngress = $tzSpec | Select-Object -ExpandProperty ncp_cluster_network_spec | Select-Object -ExpandProperty ingress_cidrs | ForEach-Object {$_.address + "/" + $_.prefix}
+    $tzEgress = $tzSpec | Select-Object -ExpandProperty ncp_cluster_network_spec | Select-Object -ExpandProperty egress_cidrs | ForEach-Object {$_.address + "/" + $_.prefix}
 #NSX Edge Related CloudBuilder Config
     $edgeClusterSpec = Get-Content "$scriptDir\automated_api_jsons\NSX_EdgeCluster_API.json" | ConvertFrom-JSON
-    $edgeNeighbors =  $($edgeClusterSpec | Select -ExpandProperty edgeNodeSpecs | Select -ExpandProperty uplinkNetwork)
-    $edgeNodeSpecs = $edgeClusterSpec | Select -ExpandProperty edgeNodeSpecs
-    $edgeUplinkVlans = $edgeNeighbors | Select -ExpandProperty uplinkVlan -Unique
+    $edgeNeighbors =  $($edgeClusterSpec | Select-Object -ExpandProperty edgeNodeSpecs | Select-Object -ExpandProperty uplinkNetwork)
+    $edgeNodeSpecs = $edgeClusterSpec | Select-Object -ExpandProperty edgeNodeSpecs
+    $edgeUplinkVlans = $edgeNeighbors | Select-Object -ExpandProperty uplinkVlan -Unique
     $edgeUplinkIPs =  foreach ($edgeIP in $edgeNeighbors) {$($edgeIP.uplinkInterfaceIP).Split("/")[0]}
 #    $uplinkInfo = $($avnNetworkInfo | Where -Property networkType -match "UPLINK")
 #    $uplinkAddrs = $uplinkInfo | Select -ExpandProperty gateway | foreach {"$_/$($($uplinkInfo | Select -ExpandProperty subnet).Split('/')[1])"}
@@ -926,6 +941,31 @@ Function cbConfigurator
     $nicstoCreate.Add("uplink1",@{gwip=$($edgeNeighbors[0].peerIP);vlan=$edgeUplinkVlans[0]})
     $nicstoCreate.Add("uplink2",@{gwip=$($edgeNeighbors[1].peerIP);vlan=$edgeUplinkVlans[1]})
     $nicstoCreate.Add("edgeTep",@{gwip=$($edgeNodeSpecs[0].edgeTepGateway)+"/"+$($edgeNodeSpecs[0].edgeTep1IP).Split('/')[1];vlan=$edgeNodeSpecs[0].edgeTepVLAN})
+
+    if ($global:userOptions.labSKUs -eq "HCXSite1") {
+        $hcxNets = [System.Collections.ArrayList]@()
+        $addDhcpScope = [System.Collections.ArrayList]@()
+        $addtlNets = Get-Content "$scriptDir\conf\site1_additional_networks.json" | ConvertFrom-JSON
+        foreach ($anet in $addtlNets.nets){ 
+            $nicsToCreate.Add($anet.Name,@{gwip=$anet.gwip;vlan=$anet.vlan})
+            $hcxNets +=@($anet.gwip)
+            if ($anet.Name -match "dhcp") {
+                $scopeSubnet = $($anet.gwip.Split("/")[0]).Replace(".1",".0")
+                $scopeSubnetMask = CIDRtoSubnet -inputCIDR $anet.gwip.Split("/")[1]
+                $scopeInterface = "eth0.$($anet.vlan)"
+                $scopeRouter = $($anet.gwip.Split("/")[0])
+                $addDhcpScope.Add($(addDhcpdScope -scSubnet $scopeSubnet -scSubnetMask $scopeSubnetMask -scRouter $scopeRouter -scInt $scopeInterface))
+            }
+        }
+
+    } elseif ($global:userOptions.labSKUs -eq "HCXSite2") {
+        $hcxNets = [System.Collections.ArrayList]@()
+        $addtlNets = Get-Content "$scriptDir\conf\site1_additional_networks.json" | ConvertFrom-JSON
+        foreach ($anet in $addtlNets.nets){
+            #This will add to deadwood but not configure nics on CB 
+            $hcxNets +=@($anet.gwip)
+        }
+    }
 
     $replaceNet +="echo $($userOptions.masterPassword) | sudo su - <<END`n"
     $replaceNet +="cp /etc/systemd/network/10-eth0.network /etc/systemd/network/10-eth0.network.orig`n"
@@ -1011,6 +1051,7 @@ Function cbConfigurator
     $replaceNet +="echo   option domain-name-servers $CloudBuilderIP\;`n"
     $replaceNet +="echo   option routers $($DhcpGateway.ToString())\;`n"
     $replaceNet +="echo }`n"
+    $replaceNet +=$addDhcpScope
     $replaceNet +=")>/etc/dhcp/dhcpd.conf`n"
     $replaceNet +="(`n"
     $replaceNet +="echo [Unit]`n"
@@ -1154,11 +1195,11 @@ Function cbConfigurator
     $replaceDNS +="echo upstream_servers[\`"$vcfDomainName.\`"] = \`"127.0.0.1\`"`n"
 #Additional Site Config if present
     if ($global:userOptions.altSiteDNSServerIP -and $global:userOptions.altSitemgmtNetSubnet -and $global:userOptions.altSitevcfDomainName) {
-        $revAltSiteArray = $($global:userOptions.altSitemgmtNetSubnet).ToString().Split(".") | select -first 3
+        $revAltSiteArray = $($global:userOptions.altSitemgmtNetSubnet).ToString().Split(".") | Select-Object -first 3
         $reverseAltSiteDNS = "$($revAltSiteArray[($revAltSiteArray.Count-1)..0] -join '.').in-addr.arpa."
         $replaceDNS +="echo upstream_servers[\`"$reverseAltSiteDNS\`"] = \`"$($global:userOptions.altSiteDNSServerIP)\`"`n"
         $replaceDNS +="echo upstream_servers[\`"$($global:userOptions.altSitevcfDomainName).\`"] = \`"$($global:userOptions.altSiteDNSServerIP)\`"`n"
-        $replaceDNS +="echo recursive_acl = \`"$($($edgeNeighbors[0].peerIP).Split("/")[0]),$($global:userOptions.altSitemgmtNetSubnet),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
+        $replaceDNS +="echo recursive_acl = \`"$($($hcxNets -join ",").Replace(".1/",".0/") + ",")$($($edgeNeighbors[0].peerIP).Split("/")[0]),$($global:userOptions.altSitemgmtNetSubnet),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
 
     } else {
         $replaceDNS +="echo recursive_acl = \`"$($($edgeNeighbors[0].peerIP).Split("/")[0]),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
@@ -1261,13 +1302,13 @@ Function cbConfigurator
 
     do {
 	      logger "Waiting for CloudBuilder Network to be available..."
-	      sleep 60      
-	    } until(Test-NetConnection $CloudBuilderIP -Port 22| ? { $_.tcptestsucceeded } )
+	      Start-Sleep 60      
+	    } until(Test-NetConnection $CloudBuilderIP -Port 22| Where-Object { $_.tcptestsucceeded } )
 
     do {
           $CBOnline = Get-VM -Name $CBName
 	      logger "Waiting for CloudBuilder VMTools to be started"
-	      sleep 60  
+	      Start-Sleep 60  
         } until($CBOnline.ExtensionData.Guest.ToolsRunningStatus -eq "guestToolsRunning")   
 
     logger "CloudBuilder online!"
@@ -1284,13 +1325,13 @@ Function cbConfigurator
 Function CIDRtoSubnet ($inputCIDR) 
 {
 
-    (('1'*$inputCIDR+'0'*(32-$inputCIDR)-split'(.{8})')-ne''|%{[convert]::ToUInt32($_,2)})-join'.'
+    (('1'*$inputCIDR+'0'*(32-$inputCIDR)-split'(.{8})')-ne''|ForEach-Object{[convert]::ToUInt32($_,2)})-join'.'
 
 }
 Function SubnettoCIDR ($inputSubnetMask) 
 {
 
-    ((([IPAddress]$inputSubnetMask).getaddressbytes() | %{[CONVERT]::ToString($_,2)} | Out-String) -replace "[\s0]").length
+    ((([IPAddress]$inputSubnetMask).getaddressbytes() | ForEach-Object{[CONVERT]::ToString($_,2)} | Out-String) -replace "[\s0]").length
 
 }
 Function parseBringUpFile
@@ -1298,13 +1339,13 @@ Function parseBringUpFile
     $bringupObject = $global:bringUpOptions
     #Get VLAN's and network types from EMS JSON Data
     $baseNetworkInfo = New-Object System.Collections.Hashtable
-    $bringupObject.networkSpecs | Select NetworkType,VLANId | foreach -Process {$baseNetworkInfo+=@{$_.NetworkType=$_.VLANId}}
-    $baseNetworkInfo +=@{"HOSTTEP"=$($bringupObject.nsxtSpec | Select -ExpandProperty transportVlanId)}
+    $bringupObject.networkSpecs | Select-Object NetworkType,VLANId | ForEach-Object -Process {$baseNetworkInfo+=@{$_.NetworkType=$_.VLANId}}
+    $baseNetworkInfo +=@{"HOSTTEP"=$($bringupObject.nsxtSpec | Select-Object -ExpandProperty transportVlanId)}
     #Get Additional Data from EMS JSON Data
     $txtDomainName.text = $bringupObject.dnsSpec.subdomain
-    $txtMgmtNet.text = $($bringupObject.networkSpecs| where { $_.networkType -eq "MANAGEMENT" } | Select subnet).subnet
+    $txtMgmtNet.text = $($bringupObject.networkSpecs| Where-Object { $_.networkType -eq "MANAGEMENT" } | Select-Object subnet).subnet
     $txtMgmtNetVlan.text = $baseNetworkInfo['MANAGEMENT']
-    $txtMgmtGateway.text = $($bringupObject.networkSpecs| where { $_.networkType -eq "MANAGEMENT" } | Select gateway).gateway
+    $txtMgmtGateway.text = $($bringupObject.networkSpecs| Where-Object { $_.networkType -eq "MANAGEMENT" } | Select-Object gateway).gateway
     $txtMasterPass.text = $($bringupObject.hostSpecs| Select-Object @{N="password";E={$_.credentials.password}} -unique).password
     $txtNTP.text = $bringupObject.ntpServers
     $txtDNS.text = $bringupObject.dnsSpec.nameServer
@@ -1332,18 +1373,18 @@ Function compileDNSRecords
     $dnsFQDNs = New-Object System.Collections.Hashtable
 
     #Hosts from template file
-    $global:bringUpOptions | Select -ExpandProperty hostSpecs | ForEach-Object -Process {$dnsFQDNs.Add($_.hostname,$_.ipAddressPrivate.ipAddress)}
+    $global:bringUpOptions | Select-Object -ExpandProperty hostSpecs | ForEach-Object -Process {$dnsFQDNs.Add($_.hostname,$_.ipAddressPrivate.ipAddress)}
     #Additional Hosts
     if ($userOptions.addHostsJson -ne "") {
-        Get-Content -raw $userOptions.addHostsJson | ConvertFrom-Json | Select -ExpandProperty genVM | ForEach-Object -Process {$dnsFQDNs.Add($_.name,$_.mgmtIP)}
+        Get-Content -raw $userOptions.addHostsJson | ConvertFrom-Json | Select-Object -ExpandProperty genVM | ForEach-Object -Process {$dnsFQDNs.Add($_.name,$_.mgmtIP)}
     }
     #vCenter
-    $global:bringupOptions | Select -ExpandProperty vCenterSpec | ForEach-Object -Process {$dnsFQDNs.add($_.vcenterHostName,$_.vcenterIP)}
+    $global:bringupOptions | Select-Object -ExpandProperty vCenterSpec | ForEach-Object -Process {$dnsFQDNs.add($_.vcenterHostName,$_.vcenterIP)}
     #SDDC Manager
-    $global:bringupOptions | Select -ExpandProperty sddcManagerSpec | ForEach-Object -Process {$dnsFQDNs.add($_.hostname,$_.ipAddress)}
+    $global:bringupOptions | Select-Object -ExpandProperty sddcManagerSpec | ForEach-Object -Process {$dnsFQDNs.add($_.hostname,$_.ipAddress)}
     #NSX
-    $global:bringupOptions | Select -ExpandProperty nsxtSpec | Select vipFQDN, vip | ForEach-Object -Process {$dnsFQDNs.add($_.vipFqdn,$_.vip)}
-    $global:bringupOptions | Select -ExpandProperty nsxtSpec | Select-Object -ExpandProperty nsxtManagers | ForEach-Object -Process {$dnsFQDNs.add($_.hostname,$_.ip)}
+    $global:bringupOptions | Select-Object -ExpandProperty nsxtSpec | Select-Object vipFQDN, vip | ForEach-Object -Process {$dnsFQDNs.add($_.vipFqdn,$_.vip)}
+    $global:bringupOptions | Select-Object -ExpandProperty nsxtSpec | Select-Object -ExpandProperty nsxtManagers | ForEach-Object -Process {$dnsFQDNs.add($_.hostname,$_.ip)}
     return $dnsFQDNs
 
 }
@@ -1701,15 +1742,36 @@ function sddcTokenPairCreate ($sddcMgrIP, $userName, $passWord) {
             ContentType = 'application/json'
             Body        = "{`"username`" : `"$userName`",`"password`" : `"$passWord`"}"
         }
-        
-    try {   
-        $apiTokens = $(Invoke-RestMethod @tokenCreateParms @global:skipSSLFlag)
-        return $apiTokens 
-    } catch {
-            logger "SDDC Token Create Error: $($Error[0])"
-            logger "Please review the logs on SDDC Manager in /var/log/vcf to locate the problem"
-            Read-Host "Press Enter to exit"
-            Exit
+    $apiCall = 0
+    while ($apiCall -ne $null) {        
+        try {   
+            $apiTokens = $(Invoke-RestMethod @tokenCreateParms @global:skipSSLFlag)
+            $apiCall = $null 
+            return $apiTokens
+        } catch {
+            #logger "Error $($Error[0])"
+            $apiCall++
+
+            if ($_.Exception.Response.StatusCode.value__ -eq 401 -or $_.Exception.Response.StatusCode.value__ -eq 404)
+            {
+                if ($apiCall -gt 5) {
+                    logger "Failed sddcTokenPairCreate $apicall times, terminating."
+                    $apiCall = $null
+                } else {
+                    logger "Token Expired $(get-date -Format hh:mm:ss)"
+                    $apiTokens = $(sddcTokenRefresh -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens)
+                }
+            } elseif ($($Error[0]) -match "502" -or $($Error[0]) -match "500" ) {
+                logger "Waiting for NGINX to fully start"
+                Start-Sleep 10
+            }
+    }
+        <# catch {
+                logger "SDDC Token Create Error: $($Error[0])"
+                logger "Please review the logs on SDDC Manager in /var/log/vcf to locate the problem"
+                Read-Host "Press Enter to exit"
+                Exit
+        } #>
     }
 }
 
@@ -1743,7 +1805,7 @@ function sddcGetEntity ($sddcMgrIP, $apiTokens, [ValidateSet("edge-clusters","cl
                 }
             } elseif ($($Error[0]) -match "502" -or $($Error[0]) -match "500" ) {
                 logger "Waiting for NGINX to fully start"
-                sleep 10
+                Start-Sleep 10
             }
     }
 
@@ -1869,7 +1931,7 @@ function sddcTaskPoll ($sddcMgrIP, $apiTokens, $taskId) {
                     } else {
                         if ( $taskInfo.psobject.properties.match('subTasks').Count) {
                         
-                            $currTask = $taskInfo | Select -ExpandProperty subTasks | where-object {$_.status -eq "IN_PROGRESS"} | Select name -First 1
+                            $currTask = $taskInfo | Select-Object -ExpandProperty subTasks | where-object {$_.status -eq "IN_PROGRESS"} | Select-Object name -First 1
                             } else {
                             $currTask = $taskInfo
                             } 
@@ -1893,14 +1955,14 @@ function vcAuthToken ($vcServer,$vcCreds) {
         ContentType = 'application/json'
     }
 
-try {
-        $vcToken = $(Invoke-Restmethod @vcTokenParms @global:skipSSLFlag)
-        return $($vcToken).value
-} catch {
-    
-        logger "VC Token Error: $($Error[0])"
-        logger "Please review the logs on SDDC Manager in /var/log/vcf to locate the problem"
-    }
+    try {
+            $vcToken = $(Invoke-Restmethod @vcTokenParms @global:skipSSLFlag)
+            return $($vcToken).value
+    } catch {
+        
+            logger "VC Token Error: $($Error[0])"
+            logger "Please review the logs on SDDC Manager in /var/log/vcf to locate the problem"
+        }
 }
 function vcCreateObject ($vcServer,$vcToken, [ValidateSet("namespace-management/clusters","namespaces/instances")]$entityType,$tzCluster,$tzJsonPayload){
 
@@ -1939,8 +2001,7 @@ function vcCreateObject ($vcServer,$vcToken, [ValidateSet("namespace-management/
     }   
 }
 function vcGetObject ($vcServer,$vcToken, [ValidateSet("vm","cluster","namespace-management/clusters","namespace-management/edge-cluster-compatibility")]$entityType,$tzDVSwitch,$tzCluster,$tzJsonPayload) {
-    $vcAuth = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($vcCreds.UserName+':'+$vcCreds.GetNetworkCredential().Password))
-
+    
     if ($entityType -match "edge") {
 
         $tzURIRequest = "https://$vcServer/api/vcenter/$entityType`?cluster=$tzCluster`&distributed_switch=$([uri]::EscapeDataString($tzDVSwitch))"
@@ -1985,10 +2046,10 @@ function vclsFix ($vcServer, $vcUser, $vcPass, $hostUser, $hostPass){
     $vCLSvm = ""
     foreach ($vc in $vcServer){
         
-        connect-viserver -server $vc -User $vcUser -password $vcPass
+        connectVI -vmhost $vc -vmUser $vcUser -vmPassword $vcPass -numTries 10
         logger "Setting permissions for vCLS manipulation"
-        $newPrivs = $(get-VIRole -name Admin).ExtensionData.Privilege | where {$_ -match "VirtualMachine.Config"}
-        $newPrivs | foreach {Set-VIRole -Role vCLSadmin -AddPrivilege (Get-VIPrivilege -id $_)}
+        $newPrivs = $(get-VIRole -name Admin).ExtensionData.Privilege | Where-Object {$_ -match "VirtualMachine.Config"}
+        $newPrivs | ForEach-Object {Set-VIRole -Role vCLSadmin -AddPrivilege (Get-VIPrivilege -id $_)}
         logger "Finding vCLS VM"
         $vms = get-vm -name vCLS* | Where-Object {$_.PowerState -match "PoweredOff"}
         if ($vms -ne $null){
@@ -2000,9 +2061,9 @@ function vclsFix ($vcServer, $vcUser, $vcPass, $hostUser, $hostPass){
                             
                             do {
 
-                                $evcSet = $(Get-VM $vCLSvm | Select -ExpandProperty ExtensionData | Select -ExpandProperty Runtime | Select -ExpandProperty FeatureMask).Count
+                                $evcSet = $(Get-VM $vCLSvm | Select-Object -ExpandProperty ExtensionData | Select-Object -ExpandProperty Runtime | Select-Object -ExpandProperty FeatureMask).Count
                                 logger "Featuremask count for $vCLSvm is currently $evcSet"
-                                Sleep 10
+                                Start-Sleep 10
                                 $evcChkCnt++
 
                             } until ($evcSet -gt 0 -or $evcChkCnt -eq 5)
@@ -2015,11 +2076,11 @@ function vclsFix ($vcServer, $vcUser, $vcPass, $hostUser, $hostPass){
                                 logger "Waiting for VM to power on"   
                                 $thisvCLSvm = get-vm -name $vCLSvm.Name
                                 if ($thisvCLSvm.PowerState -match "PoweredOn") { $poweredOn = $true }
-                                sleep 10
+                                Start-Sleep 10
                             } until ($poweredOn)
                             #$vCLSvm | Start-VM
                             logger "Waiting for additional vCLS VM to be created"
-                            sleep 30
+                            Start-Sleep 30
                             logger "Finding additional vCLS VM's"
                             $vm = get-vm -name vCLS* | Where-Object {$_.PowerState -match "PoweredOff"}
                         }
@@ -2167,7 +2228,7 @@ if ($isCLI) {
             $mainMenu=New-Object System.Windows.Forms.MenuStrip
             $frmVCFLCMain.Controls.Add($mainMenu)
 
-            (addMenuItem -ParentItem ([ref]$mainMenu) -ItemName 'mnuFile' -ItemText 'File' -ScriptBlock $null) | %{ 
+            (addMenuItem -ParentItem ([ref]$mainMenu) -ItemName 'mnuFile' -ItemText 'File' -ScriptBlock $null) | ForEach-Object{ 
             $null=addMenuItem -ParentItem ([ref]$_) -ItemName 'mnuFileOpen' -ItemText 'Load' -ScriptBlock $sbLoadSettings; 
             $null=addMenuItem -ParentItem ([ref]$_) -ItemName 'mnuFileSave' -ItemText 'Save' -ScriptBlock $sbSaveSettings; 
             $null=addMenuItem -ParentItem ([ref]$_) -ItemName 'mnuFileExit' -ItemText 'Exit' -ScriptBlock $sbExit;} | Out-Null; 
@@ -2316,8 +2377,8 @@ if ($isCLI) {
                         } elseif ($(test-path $txtNestedJSON.Text) -eq $true) {
                         
                             try {
-                                get-content $txtNestedJSON.Text | ConvertFrom-JSON | Select -ExpandProperty genVM -ErrorAction Stop
-                                if ($(get-content $txtNestedJSON.Text | ConvertFrom-JSON | Select -ExpandProperty genVM).Count -gt 2) {
+                                get-content $txtNestedJSON.Text | ConvertFrom-JSON | Select-Object -ExpandProperty genVM -ErrorAction Stop
+                                if ($(get-content $txtNestedJSON.Text | ConvertFrom-JSON | Select-Object -ExpandProperty genVM).Count -gt 2) {
                                     $lblbuildOps.visible = $true
                                     $comboBoxBuildOps.visible = $true
                                 }
@@ -2816,6 +2877,7 @@ if ($isCLI) {
             $comboBoxBuildOps.Location = New-Object System.Drawing.Point(200, 325) 
             $comboBoxBuildOps.Size = New-Object System.Drawing.Size(100, 10) 
             $comboBoxBuildOps.Items.add("WLD Domain") 
+            $comboBoxBuildOps.Items.add("ISOWLD Domain") 
             $comboBoxBuildOps.Items.add("Cluster") 
             $comboBoxBuildOps.Items.add("None") 
             $frmVCFLCMain.controls.Add($comboBoxBuildOps)
@@ -3279,7 +3341,7 @@ $createHostCode = {
         Write-Error "Could not Start VM" -ErrorAction Stop
     }
 
-	sleep 5
+	Start-Sleep 5
 	write-host "Stopping VM"  -foreground red
     logger "Stopping VM" -logOnly
 	Stop-VM -VM $VM_Name -confirm:$false | out-null
@@ -3287,15 +3349,15 @@ $createHostCode = {
         Do {
             $vmPower = Get-VM $VM_Name
             write-host "Waiting to STOP!"
-            Sleep 5
+            Start-Sleep 5
          } until ( $vmPower.Powerstate -eq "Poweredoff" )
 
-    sleep 5
+    Start-Sleep 5
 	$hostNetAdapter = Get-NetworkAdapter -VM $VM_Name
 	$hostMacAddress = "01-" + $hostNetAdapter[0].MacAddress -replace ":","-"
 	write-host "MAC address is ${hostMacAddress}      "  -foreground green
     logger "MAC address is ${hostMacAddress}" -logOnly
-	sleep 5
+	Start-Sleep 5
 }
 #endregion Host Creation
 
@@ -3334,14 +3396,14 @@ $startupHostCode = {
 
     do {
 	  write-Host "Waiting for host to install and reboot."$dotBar
-	  sleep 30 
+	  Start-Sleep 30 
 	  $dotBar += "."
-    } until(Test-NetConnection $mgmtIP -Port 22 | ? { $_.tcptestsucceeded } )
+    } until(Test-NetConnection $mgmtIP -Port 22 | Where-Object { $_.tcptestsucceeded } )
     
     do {
         $ESXiOnline = Get-VM -Name $VM_Name
         logger "Waiting for host to be online."$dotBar
-        sleep 30
+        Start-Sleep 30
         $dotBar += "."  
       } until($ESXiOnline.ExtensionData.Guest.ToolsRunningStatus -eq "guestToolsRunning") 
 
@@ -3370,7 +3432,7 @@ if ($userOptions.nestedVMPrefix.Length -gt 0) {
 } 
 
 logger "----------------------Inputs------------------5.1----"
-foreach ($uO in $global:userOptions.GetEnumerator() | Sort Name){logger $($uO.Key + "`t`t" + $uO.Value)}
+foreach ($uO in $global:userOptions.GetEnumerator() | Sort-Object Name){logger $($uO.Key + "`t`t" + $uO.Value)}
 logger "--------------------END-Inputs-----------------------" 
 
 # Parse Host JSONs
@@ -3457,7 +3519,7 @@ If (!$chkHostOnly.Checked) {
         $ovfArgs.Add("`"vi://${usernameOVF}:${passwordOVF}@${esxhostOVF}`"")
     } else {
         #Get the MoRef of the Cluster in case it has spaces or illegal characters
-        $targetCluster = Get-Cluster | Where {$_.Name -eq $clusterOVF}
+        $targetCluster = Get-Cluster | Where-Object {$_.Name -eq $clusterOVF}
         $clusterMoref = $targetCluster.ExtensionData.MoRef.Value
         $ovfArgs.Add("`"vi://${usernameOVF}:${passwordOVF}@${esxhostOVF}:443?moref=vim.ClusterComputeResource:${clusterMoref}`"")
     }
@@ -3488,7 +3550,7 @@ If (!$chkHostOnly.Checked) {
     do {
           $CBOnline = Get-VM -Name $cbName
 	      logger "Waiting for CloudBuilder to be available..."
-	      sleep 60  
+	      Start-Sleep 60  
         } until($CBOnline.ExtensionData.Guest.ToolsRunningStatus -eq "guestToolsRunning")   
 
     logger "CloudBuilder online!"
@@ -3546,7 +3608,7 @@ If (!$chkHostOnly.Checked) {
             Copy-VMGuestFile -Source $esxiPath -Destination "$scriptDir\$tempDir\" -VM $CBOnline -GuestToLocal -GuestUser admin -GuestPassword $masterPassword -ToolsWaitSecs 30 -Force
             logger "Making backup copy of the ESXi ISO in $scriptDir\cb_esx_iso\ for future use with Expansion Pack"
             Copy-Item $osEsxiPath -Destination "$scriptDir\cb_esx_iso\" -Recurse
-            $userOptions['vSphereISOLoc'] = $(Get-ChildItem -Path "$scriptDir\$tempDir\*.iso" | Select FullName).FullName        
+            $userOptions['vSphereISOLoc'] = $(Get-ChildItem -Path "$scriptDir\$tempDir\*.iso" | Select-Object FullName).FullName        
         }
     } else {
         logger "Using ESXi ISO located here: $vSphereISOLoc"
@@ -3636,7 +3698,7 @@ Do {
 
     Start-Sleep -Seconds 5
 
-} Until (($hostJobs | Where State -eq "Running").Count -eq 0)
+} Until (($hostJobs | Where-Object State -eq "Running").Count -eq 0)
 
 Remove-Job -Job $hostJobs
 
@@ -3828,14 +3890,14 @@ Do {
 	
     Start-Sleep -Seconds 5
 
-} Until (($hostJobs | Where State -eq "Running").Count -eq 0)
+} Until (($hostJobs | Where-Object State -eq "Running").Count -eq 0)
 
 Remove-Job -Job $hostJobs
 
 logger "All hosts online, starting additional config."
 logger "Nested Hosts Online Time: $($totalTime.Elapsed)"
 logger "Waiting 1 min for nested hosts to settle"
-Sleep 60
+Start-Sleep 60
 #endregion Custom ISO Generation
 
 #endregion Imaging
@@ -3884,7 +3946,7 @@ public static class Dummy {
             $success=$true
             write-host "Bringup online"
         } catch { 
-            sleep 10
+            Start-Sleep 10
             write-host "Try $i"
             $i++
             "Not ready yet" }
@@ -3972,14 +4034,14 @@ public static class Dummy {
 
         } else {
 
-            $currTask = $bringupExec | Select -ExpandProperty sddcSubTasks | where-object {$_.status -eq "IN_PROGRESS"} | Select name
+            $currTask = $bringupExec | Select-Object -ExpandProperty sddcSubTasks | where-object {$_.status -eq "IN_PROGRESS"} | Select-Object name
 
             #Address vCLS VM's not starting until after bringup
             
             if ($currTask.name -eq "Deploy NSX Manager" -and !$runvCLSFixOnce){
-                $managementVCIP = $($Global:bringupOptions | Select -ExpandProperty vCenterSpec | Select vcenterIp).vcenterIp
-                $ssoDomain = $($Global:bringUpOptions | Select -ExpandProperty pscSpecs | Select -ExpandProperty pscSsoSpec | Select ssoDomain -Unique).ssoDomain
-                $ssoAdminPassword = $($Global:bringUpOptions | Select -ExpandProperty pscSpecs | Select adminUserSsoPassword -Unique).adminUserSsoPassword
+                $managementVCIP = $($Global:bringupOptions | Select-Object -ExpandProperty vCenterSpec | Select-Object vcenterIp).vcenterIp
+                $ssoDomain = $($Global:bringUpOptions | Select-Object -ExpandProperty pscSpecs | Select-Object -ExpandProperty pscSsoSpec | Select-Object ssoDomain -Unique).ssoDomain
+                $ssoAdminPassword = $($Global:bringUpOptions | Select-Object -ExpandProperty pscSpecs | Select-Object adminUserSsoPassword -Unique).adminUserSsoPassword
                 $ssoCredential = "administrator@$ssoDomain"
                 logger "Starting vCLS VM's to ensure additional VMs are spread across cluster"
                 vclsFix -vcServer $managementVCIP -vcUser $ssoCredential -vcPass $ssoAdminPassword -hostUser "root" -hostPass $($userOptions.masterPassword)
@@ -4022,14 +4084,14 @@ public static class Dummy {
 
     bytewriter $domainManagercfg "DomainManagerConfig.bash"
 
-    $sddcManagerVM = $($Global:bringupOptions | Select -ExpandProperty sddcManagerSpec | Select hostname).hostname
-    $sddcMgrIP = $global:bringUpOptions | Select -ExpandProperty sddcManagerSpec | select -ExpandProperty ipaddress
-    $managementVC = $($Global:bringupOptions | Select -ExpandProperty vCenterSpec | Select vcenterHostname).vcenterHostname
-    $managementVCIP = $($Global:bringupOptions | Select -ExpandProperty vCenterSpec | Select vcenterIp).vcenterIp
-    $mgmtClusterName = $($Global:bringupOptions | Select -ExpandProperty clusterSpec | Select clusterName).clusterName
-    $nsxMgtVM = $($Global:bringupOptions | Select -ExpandProperty nsxtSpec | Select -ExpandProperty nsxtManagers | Select hostname).hostname 
-    $ssoDomain = $($Global:bringUpOptions | Select -ExpandProperty pscSpecs | Select -ExpandProperty pscSsoSpec | Select ssoDomain -Unique).ssoDomain
-    $ssoAdminPassword = $($Global:bringUpOptions | Select -ExpandProperty pscSpecs | Select adminUserSsoPassword -Unique).adminUserSsoPassword
+    $sddcManagerVM = $($Global:bringupOptions | Select-Object -ExpandProperty sddcManagerSpec | Select-Object hostname).hostname
+    $sddcMgrIP = $global:bringUpOptions | Select-Object -ExpandProperty sddcManagerSpec | Select-Object -ExpandProperty ipaddress
+    $managementVC = $($Global:bringupOptions | Select-Object -ExpandProperty vCenterSpec | Select-Object vcenterHostname).vcenterHostname
+    $managementVCIP = $($Global:bringupOptions | Select-Object -ExpandProperty vCenterSpec | Select-Object vcenterIp).vcenterIp
+    $mgmtClusterName = $($Global:bringupOptions | Select-Object -ExpandProperty clusterSpec | Select-Object clusterName).clusterName
+    $nsxMgtVM = $($Global:bringupOptions | Select-Object -ExpandProperty nsxtSpec | Select-Object -ExpandProperty nsxtManagers | Select-Object hostname).hostname 
+    $ssoDomain = $($Global:bringUpOptions | Select-Object -ExpandProperty pscSpecs | Select-Object -ExpandProperty pscSsoSpec | Select-Object ssoDomain -Unique).ssoDomain
+    $ssoAdminPassword = $($Global:bringUpOptions | Select-Object -ExpandProperty pscSpecs | Select-Object adminUserSsoPassword -Unique).adminUserSsoPassword
     $ssoCredential = "administrator@$ssoDomain"
 
 
@@ -4074,8 +4136,8 @@ public static class Dummy {
     logger "Waiting for SDDC Manager to come online"
     do {
             logger "Waiting for SDDC Manager Network to be available..."
-            sleep 60      
-        } until(Test-NetConnection $sddcMgrIP -Port 22| ? { $_.tcptestsucceeded } )
+            Start-Sleep 60      
+        } until(Test-NetConnection $sddcMgrIP -Port 22| Where-Object { $_.tcptestsucceeded } )
     
     $apiUp = $false
     logger "Checking if SDDC Manager API is available..."
@@ -4087,7 +4149,7 @@ public static class Dummy {
                 ContentType = 'application/json'
                 }
             Invoke-RestMethod @checkSDDCAPIParms @global:skipSSLFlag
-            sleep 5
+            Start-Sleep 5
         } catch {
             if ($_.Exception.Response.StatusCode.value__ -eq 401) {
                 $apiUp = $true
@@ -4115,10 +4177,10 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
     logger "Obtaining API Token from SDDC Manager"
     $apiTokens = sddcTokenPairCreate -sddcMgrIP $sddcMgrIP -userName $ssoCredential -passWord $ssoAdminPassword
     logger "Checking for vLCM cluster"
-    $clusterImageBased = $(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "clusters" | Select -ExpandProperty Elements | Select -ExpandProperty isImageBased)
+    $clusterImageBased = $(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "clusters" | Select-Object -ExpandProperty Elements | Select-Object -ExpandProperty isImageBased)
     if($clusterImageBased){
         logger "Importing vLCM image to SDDC Manager"
-        $perParms = $(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "domains") | Select -ExpandProperty elements | Select -Property vcenters,clusters
+        $perParms = $(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "domains") | Select-Object -ExpandProperty elements | Select-Object -Property vcenters,clusters
         $perPayload = @{name="VLC-Image";uploadMode="REFERRED";uploadSpecReferredMode=@{clusterId=$($perParms.clusters[0].id);vCenterId=$($perParms.vcenters[0].id)}}
         $($perPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\perPayload-$(get-date -Format $global:dateFormat).json
         $perTaskId = sddcCreateEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "personalities" -payLoad $($perPayload | ConvertTo-Json)
@@ -4128,7 +4190,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
         } else {
             sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId $($perTaskId.id)
         }
-        $vlcImageID = sddcGetEntity -sddcMgrIP 10.0.0.4 -apiTokens $sddcToken -entityType personalities | Select -ExpandProperty elements | select -ExpandProperty personalityId -First 1
+        $vlcImageID = sddcGetEntity -sddcMgrIP 10.0.0.4 -apiTokens $sddcToken -entityType personalities | Select-Object -ExpandProperty elements | Select-Object -ExpandProperty personalityId -First 1
     }
     # Ensure vCLS VM's are powered on and working
     logger "Checking vCLS VM's to ensure they power up"
@@ -4139,7 +4201,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
 
         #Create Edge Cluster in Management
         logger "Obtaining management Cluster ID"
-        $sddcClusterId = $($(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "clusters") | Select -ExpandProperty elements | Select -ExpandProperty id)
+        $sddcClusterId = $($(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "clusters") | Select-Object -ExpandProperty elements | Select-Object -ExpandProperty id)
         logger "Loading Edge Cluster API JSON - NSX_EdgeCluster_API.json"
         $edgeClusterPayload = $(get-content $scriptdir\automated_api_jsons\NSX_EdgeCluster_API.json | ConvertFrom-JSON)
         logger "Adding Cluster ID: $sddcClusterId "
@@ -4154,7 +4216,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
             sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId $($edgeClusterCreateTask.id)
         }
         logger "Removing memory and CPU reservations from Edge VMs"
-        $edgeNodeNames = $($edgeClusterPayload.edgeNodeSpecs | Select -ExpandProperty edgeNodeName)
+        $edgeNodeNames = $($edgeClusterPayload.edgeNodeSpecs | Select-Object -ExpandProperty edgeNodeName)
         try {
             connect-viserver -server $managementVCIP -user $ssoCredential -password $ssoAdminPassword
         } catch {
@@ -4170,8 +4232,8 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
     if ([bool]$global:userOptions.deployWldMgmt) {
         $failOut = $false
         $clSubURL = "https://wp-content.vmware.com/v2/latest/lib.json"
-        $clDS = $($global:bringupOptions | Select -ExpandProperty vsanSpec | Select -ExpandProperty datastoreName)
-        $mgmtNetworkName = $($global:bringupOptions | Select-Object -ExpandProperty networkSpecs | Where-Object {$_.networkType -eq "MANAGEMENT"} | Select -ExpandProperty portGroupKey)
+        $clDS = $($global:bringupOptions | Select-Object -ExpandProperty vsanSpec | Select-Object -ExpandProperty datastoreName)
+        $mgmtNetworkName = $($global:bringupOptions | Select-Object -ExpandProperty networkSpecs | Where-Object {$_.networkType -eq "MANAGEMENT"} | Select-Object -ExpandProperty portGroupKey)
         logger "clDS: $clDS | MgmtNetName: $mgmtNetworkName"
         $vcCreds = New-Object System.Management.Automation.PSCredential($ssoCredential,$(ConvertTo-SecureString $ssoAdminPassword -AsPlainText -Force))
         do {           
@@ -4204,23 +4266,23 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
             
             ### collect required info for building namespace enable api
             #get cluster
-            $tzCluster = $(get-cluster | select -expand id).Replace("ClusterComputeResource-","")
+            $tzCluster = $(get-cluster | Select-Object -expand id).Replace("ClusterComputeResource-","")
             logger "Getting Cluster Info: $tzCluster"
             ### get ID for vsan storage policy
             $tzStoragePolicyID = Get-SpbmStoragePolicy -Name "vSAN Default Storage Policy" | Select-Object -ExpandProperty ID
             logger "Getting Storage Policy ID: $tzStoragePolicyID"
             ### get VDS and portgroup info
             #dvsID
-            $tzDVSwitch = Get-VDSwitch -Id $(Get-virtualnetwork -name $mgmtNetworkName | Select -ExpandProperty ExtensionData | Select -ExpandProperty Config | Select -ExpandProperty DistributedVirtualSwitch) | Select -ExpandProperty Key
+            $tzDVSwitch = Get-VDSwitch -Id $(Get-virtualnetwork -name $mgmtNetworkName | Select-Object -ExpandProperty ExtensionData | Select-Object -ExpandProperty Config | Select-Object -ExpandProperty DistributedVirtualSwitch) | Select-Object -ExpandProperty Key
             logger "Getting DVS ID (key): $tzDVSwitch"
             #mgmtNetID
-            $tzMgmtNetID = Get-virtualnetwork -name $mgmtNetworkName | select -ExpandProperty extensiondata | select -ExpandProperty key
+            $tzMgmtNetID = Get-virtualnetwork -name $mgmtNetworkName | Select-Object -ExpandProperty extensiondata | Select-Object -ExpandProperty key
             logger "Getting portgroup ID: $tzMgmtNetID"
             ### get Edge Cluster info from after edge creation
             $tzVcToken = vcAuthToken -vcServer $managementVCIP -vcCreds $vcCreds
-            $tzEdgeClusterID = $(vcGetObject -vcServer $managementVCIP -vcToken $tzVcToken -entityType namespace-management/edge-cluster-compatibility -tzDVSwitch $tzDVSwitch -tzCluster $tzCluster) | Select -ExpandProperty edge_cluster
+            $tzEdgeClusterID = $(vcGetObject -vcServer $managementVCIP -vcToken $tzVcToken -entityType namespace-management/edge-cluster-compatibility -tzDVSwitch $tzDVSwitch -tzCluster $tzCluster) | Select-Object -ExpandProperty edge_cluster
             ### WLD MGMT does not like using the same IP for GW and worker DNS, using one of the Edge uplink GW's as worker DNS for temporary fix. 
-            $tzWorkerDNS = $($edgeClusterPayload.edgeNodeSpecs | Select -ExpandProperty uplinkNetwork | Select -ExpandProperty peerIP -First 1).Split("/")[0]
+            $tzWorkerDNS = $($edgeClusterPayload.edgeNodeSpecs | Select-Object -ExpandProperty uplinkNetwork | Select-Object -ExpandProperty peerIP -First 1).Split("/")[0]
             logger "Getting Edge Cluster ID: $tzEdgeClusterID"
             ### Load Tanzu API JSON for customization
             logger "Load Workload Management API JSON for customization"
@@ -4293,7 +4355,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
     if ([bool]$global:userOptions.deployAVNs) {
         #Create AVNs on Edge Cluster
         logger "Obtaining deployed Edge Cluster ID"
-        $edgeClusterId = $($(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "edge-clusters") | Select -ExpandProperty elements | Select -ExpandProperty id)
+        $edgeClusterId = $($(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "edge-clusters") | Select-Object -ExpandProperty elements | Select-Object -ExpandProperty id)
         logger "Loading AVN API JSON - NSX_AVN_API.json"
         $avnPayload = $(get-content $scriptdir\automated_api_jsons\NSX_AVN_API.json | ConvertFrom-JSON)
         logger "Adding Edge Cluster ID: $edgeClusterId"
@@ -4313,11 +4375,11 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
     if (![string]::IsNullOrEmpty($global:userOptions.addHostsJson)) {
         logger "Commissioning additional hosts"
         logger "Obtaining Network Pool Id"
-        $networkPoolID = $($(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "network-pools") | Select -ExpandProperty elements | Select -ExpandProperty id)
+        $networkPoolID = $($(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "network-pools") | Select-Object -ExpandProperty elements | Select-Object -ExpandProperty id)
         logger "Loading Additional Host file selected - $($global:userOptions.addHostsJson)"
-        $bulkHostPayload = Get-Content $($global:userOptions.addHostsJson) | ConvertFrom-JSON | Select -ExpandProperty genVM | Select @{l='fqdn';e='name'} -First 3
+        $bulkHostPayload = Get-Content $($global:userOptions.addHostsJson) | ConvertFrom-JSON | Select-Object -ExpandProperty genVM | Select-Object @{l='fqdn';e='name'} -First 3
         logger "Creating Bulk Commission Host file to match API for HostSpecs of first 3 hosts"
-        $bulkHostPayload | foreach {$_.fqdn = "$($_.fqdn).$($global:userOptions.vcfDomainName)"}
+        $bulkHostPayload | ForEach-Object {$_.fqdn = "$($_.fqdn).$($global:userOptions.vcfDomainName)"}
         $bulkHostPayload | Where-Object { $_.fqdn } | Add-Member -MemberType NoteProperty -name networkPoolId -Value $networkPoolID
         $bulkHostPayload | Where-Object { $_.fqdn } | Add-Member -MemberType NoteProperty -name storageType -Value VSAN
         $bulkHostPayload | Where-Object { $_.fqdn } | Add-Member -MemberType NoteProperty -name username -Value root
@@ -4333,7 +4395,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
         }
         if (![string]::IsNullOrEmpty($global:userOptions.buildOps)) {
             logger "Obtaining Unallocated Usable Host IDs"
-            $sddcFreeHosts = $($(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "hosts") | Select -ExpandProperty elements | Where-Object {$_.status -match "UNASSIGNED_USEABLE"} | Select -ExpandProperty id -First 3)
+            $sddcFreeHosts = $($(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "hosts") | Select-Object -ExpandProperty elements | Where-Object {$_.status -match "UNASSIGNED_USEABLE"} | Select-Object -ExpandProperty id -First 3)
             logger "Using Licenses from bringup info"
             #$global:bringUpOptions.esxLicense
             #($global:bringUpOptions.vsanSpec | Select -ExpandProperty licenseFile)
@@ -4341,20 +4403,20 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
             if ($($global:userOptions.buildOps -match "Cluster")) {
                 #Build Cluster
                 logger "Obtaining deployed Mgmt Domain ID"
-                $sddcDomainId = $($(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "domains") | Select -ExpandProperty elements | Select -ExpandProperty id)
+                $sddcDomainId = $($(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "domains") | Select-Object -ExpandProperty elements | Select-Object -ExpandProperty id)
                 logger "Loading CLUSTER json file"
                 $clusterPayload = $(get-content $scriptdir\automated_api_jsons\CLUSTER_API.json | ConvertFrom-JSON)
                 logger "Set Domain ID"
                 $clusterPayload.domainId = $sddcDomainID
                 logger "Set Image ID"
-                $clusterPayload.computeSpec | Select -ExpandProperty clusterSpecs | foreach {$_.clusterImageId = $vlcImageID} 
+                $clusterPayload.computeSpec | Select-Object -ExpandProperty clusterSpecs | ForEach-Object {$_.clusterImageId = $vlcImageID} 
                 logger "Set licenses"
-                $clusterPayload.computeSpec.clusterSpecs.hostSpecs | foreach {$_.licenseKey = $global:bringUpOptions.esxLicense}
-                $clusterPayload.computeSpec.clusterSpecs.datastoreSpec.vsanDatastoreSpec.licenseKey = ($global:bringUpOptions.vsanSpec | Select -ExpandProperty licenseFile)
+                $clusterPayload.computeSpec.clusterSpecs.hostSpecs | ForEach-Object {$_.licenseKey = $global:bringUpOptions.esxLicense}
+                $clusterPayload.computeSpec.clusterSpecs.datastoreSpec.vsanDatastoreSpec.licenseKey = ($global:bringUpOptions.vsanSpec | Select-Object -ExpandProperty licenseFile)
                 logger "Insert Hosts"
                 $hstCnt = 0
-                $clusterPayload.computeSpec.clusterSpecs.hostSpecs | foreach {$_.id = $sddcFreeHosts[$hstCnt];$hstCnt++}
-                $clusterPayload | Select -ExpandProperty computeSpec | Select -ExpandProperty clusterSpecs | Select -ExpandProperty networkSpec | Select -ExpandProperty nsxClusterSpec | Select -ExpandProperty nsxTClusterSpec | foreach { $_.geneveVlanId = ($global:bringUpOptions.nsxtSpec.transPortVlanId) }
+                $clusterPayload.computeSpec.clusterSpecs.hostSpecs | ForEach-Object {$_.id = $sddcFreeHosts[$hstCnt];$hstCnt++}
+                $clusterPayload | Select-Object -ExpandProperty computeSpec | Select-Object -ExpandProperty clusterSpecs | Select-Object -ExpandProperty networkSpec | Select-Object -ExpandProperty nsxClusterSpec | Select-Object -ExpandProperty nsxTClusterSpec | ForEach-Object { $_.geneveVlanId = ($global:bringUpOptions.nsxtSpec.transPortVlanId) }
                 logger "Calling Cluster Creation API - this takes ~ 25 minutes"
                 $($clusterPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\clusterPayload-$(get-date -Format MMddyy-hhmmss).json
                 $clusterCreateTask = $(sddcCreateEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -payload $($clusterPayload | ConvertTo-JSON -Depth 20)  -entityType "clusters")
@@ -4366,23 +4428,31 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                 }
                 logger "Checking vCLS VM's to ensure they power up"
                 vclsFix -vcServer $managementVCIP -vcUser $ssoCredential -vcPass $ssoAdminPassword -hostUser "root" -hostPass $($userOptions.masterPassword)
-            } elseif ($($global:userOptions.buildOps -match "WLD Domain")) {
+            } elseif ($($global:userOptions.buildOps -match "WLD Domain") -or $($global:userOptions.buildOps -match "ISOWLD Domain")) {
                 #Build WLD
                 logger "Loading DOMAIN json file"
-                $wldDomainPayload= $(get-content $scriptdir\automated_api_jsons\WLD_DOMAIN_API.json | ConvertFrom-JSON)
+                if ($($global:userOptions.buildOps -eq "WLD Domain")){
+                    $wldDomainPayload= $(get-content $scriptdir\automated_api_jsons\WLD_DOMAIN_API.json | ConvertFrom-JSON)
+                    $VCssoCredential = $ssoCredential
+                    $VCssoAdminPassword = $ssoAdminPassword
+                } elseif ($($global:userOptions.buildOps -eq "ISOWLD Domain")) {
+                    $wldDomainPayload= $(get-content $scriptdir\automated_api_jsons\ISOWLD_DOMAIN_API.json | ConvertFrom-JSON)
+                    $VCssoCredential = "administrator@$($wldDomainPayload.ssoDomainSpec.ssoDomainName)"
+                    $VCssoAdminPassword = $($wldDomainPayload.ssoDomainSpec.ssoDomainPassword)
+                }
                 logger "Set Image ID"
-                $wldDomainPayload.computeSpec | Select -ExpandProperty clusterSpecs | foreach {$_.clusterImageId = $vlcImageID} 
+                $wldDomainPayload.computeSpec | Select-Object -ExpandProperty clusterSpecs | ForEach-Object {$_.clusterImageId = $vlcImageID} 
                 logger "Set licenses"
                 #Host
-                $wldDomainPayload.computeSpec.clusterSpecs.hostSpecs | foreach {$_.licenseKey = $global:bringUpOptions.esxLicense}
+                $wldDomainPayload.computeSpec.clusterSpecs.hostSpecs | ForEach-Object {$_.licenseKey = $global:bringUpOptions.esxLicense}
                 #vSAN
-                $wldDomainPayload.computeSpec.clusterSpecs.datastoreSpec.vsanDatastoreSpec.licenseKey = ($global:bringUpOptions.vsanSpec | Select -ExpandProperty licenseFile)
+                $wldDomainPayload.computeSpec.clusterSpecs.datastoreSpec.vsanDatastoreSpec.licenseKey = ($global:bringUpOptions.vsanSpec | Select-Object -ExpandProperty licenseFile)
                 #NSX
-                $wldDomainPayload.nsxTSpec.licenseKey = ($global:bringUpOptions.nsxtSpec | Select -ExpandProperty nsxtlicense)
+                $wldDomainPayload.nsxTSpec.licenseKey = ($global:bringUpOptions.nsxtSpec | Select-Object -ExpandProperty nsxtlicense)
                 logger "Insert Hosts"
                 $hstCnt = 0
-                $wldDomainPayload.computeSpec.clusterSpecs.hostSpecs | foreach {$_.id = $sddcFreeHosts[$hstCnt];$hstCnt++}
-                $wldDomainPayload | Select -ExpandProperty computeSpec | Select -ExpandProperty clusterSpecs | Select -ExpandProperty networkSpec | Select -ExpandProperty nsxClusterSpec | Select -ExpandProperty nsxTClusterSpec | foreach { $_.geneveVlanId = ($global:bringUpOptions.nsxtSpec.transPortVlanId) }
+                $wldDomainPayload.computeSpec.clusterSpecs.hostSpecs | ForEach-Object {$_.id = $sddcFreeHosts[$hstCnt];$hstCnt++}
+                $wldDomainPayload | Select-Object -ExpandProperty computeSpec | Select-Object -ExpandProperty clusterSpecs | Select-Object -ExpandProperty networkSpec | Select-Object -ExpandProperty nsxClusterSpec | Select-Object -ExpandProperty nsxTClusterSpec | ForEach-Object { $_.geneveVlanId = ($global:bringUpOptions.nsxtSpec.transPortVlanId) }
                 logger "Creating WLD"
                 logger "Calling Domain Creation API - this takes ~ 45 minutes"
                 $($wldDomainPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\wldDomainPayload-$(get-date -Format $global:dateFormat).json
@@ -4394,7 +4464,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                     sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId ($wldDomainCreateTask.id)
                 }
                 logger "Checking vCLS VM's to ensure they power up"
-                vclsFix -vcServer $($wldDomainPayload.vcenterSpec | Select -Expandproperty networkDetailsSpec | Select -Expandproperty dnsName) -vcUser $ssoCredential -vcPass $ssoAdminPassword -hostUser "root" -hostPass $($userOptions.masterPassword)           
+                vclsFix -vcServer $($wldDomainPayload.vcenterSpec | Select-Object -Expandproperty networkDetailsSpec | Select-Object -Expandproperty dnsName) -vcUser $VCssoCredential -vcPass $VCssoAdminPassword -hostUser "root" -hostPass $($userOptions.masterPassword)           
             }
         }
 

@@ -1,5 +1,5 @@
 {
-  "domainName": "WLD-01",
+  "domainName": "ISO-WLD-01",
   "ssoDomainSpec": {
     "ssoDomainName": "vlc.lab",
     "ssoDomainPassword": "VMware123!"
@@ -21,6 +21,7 @@
     "clusterSpecs": [
       {
         "name": "wld01-c01",
+	"clusterImageId": "",
         "hostSpecs": [
           {
             "id": "",
@@ -34,6 +35,14 @@
                 {
                   "id": "vmnic1",
                   "vdsName": "wld01-c01-vds01"
+                },
+                {
+                  "id": "vmnic2",
+                  "vdsName": "wld01-c01-vsan-vds02"
+                },
+                {
+                  "id": "vmnic3",
+                  "vdsName": "wld01-c01-vsan-vds02"
                 }
               ]
             }
@@ -50,6 +59,14 @@
                 {
                   "id": "vmnic1",
                   "vdsName": "wld01-c01-vds01"
+                },
+                {
+                  "id": "vmnic2",
+                  "vdsName": "wld01-c01-vsan-vds02"
+                },
+                {
+                  "id": "vmnic3",
+                  "vdsName": "wld01-c01-vsan-vds02"
                 }
               ]
             }
@@ -66,6 +83,14 @@
                 {
                   "id": "vmnic1",
                   "vdsName": "wld01-c01-vds01"
+                },
+                {
+                  "id": "vmnic2",
+                  "vdsName": "wld01-c01-vsan-vds02"
+                },
+                {
+                  "id": "vmnic3",
+                  "vdsName": "wld01-c01-vsan-vds02"
                 }
               ]
             }
@@ -82,6 +107,12 @@
           "vdsSpecs": [
             {
               "name": "wld01-c01-vds01",
+              "nsxtSwitchConfig" : {
+              	  "transportZones" : [ {
+              	  	"name" : "wld01-c01-vds01-pg-overlay01",
+              	  	"transportType" : "OVERLAY"
+                  } ]
+	       },
               "portGroupSpecs": [
                 {
                   "name": "wld01-c01-vds01-pg-mgmt",
@@ -90,9 +121,14 @@
                 {
                   "name": "wld01-c01-vds01-pg-vmotion",
                   "transportType": "VMOTION"
+                }
+              ]
                 },
                 {
-                  "name": "wld01-c01-vds01-pg-vsan",
+              "name": "wld01-c01-vsan-vds02",
+              "portGroupSpecs": [		
+                {
+                  "name": "wld01-c01-vds02-pg-vsan",
                   "transportType": "VSAN"
                 }
               ]
