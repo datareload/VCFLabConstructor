@@ -465,27 +465,33 @@ Function connectVI ($vmHost, $vmUser, $vmPassword, $numTries)
     if($($global:DefaultVIServers.Count) -gt 0) {
         Disconnect-VIServer * -Force -Confirm:$false | Out-Null
     }
-        try {
-        Write-host "Connecting to VI, please wait.." -ForegroundColor green
-        logger "Connecting to VI, please wait.." -logOnly
-        #Connect to vCenter
-        Set-PowerCLIConfiguration -Scope Session -WebOperationTimeoutSeconds 30 -Confirm:$false
-        Connect-viserver -Server $vmHost -user $vmUser -password $vmPassword -ErrorAction Stop
-        } catch [Exception]{
-            $status = 1
-            $exception = $($_.Exception.Message).Split("`t")
-            logger $exception
-            #$wshell = New-Object -ComObject Wscript.Shell
-            #$wshell.Popup($exception,0,"Check VI Connection",1+4096)
-            Write-Host "Could not connect to VI, try #$i" -ForegroundColor Red
-            if ($i -ge $numTries) {
-                logger "Unable to connect to VI after $i tries."
-                $msg = "Could not connect to VI."
-            }
-            #sleep 30
-            $i++
-            #Continue
-        }
+        Do {
+            try {
+                Write-host "Connecting to VI, please wait.." -ForegroundColor green
+                logger "Connecting to VI, please wait.." -logOnly
+                #Connect to vCenter
+                Set-PowerCLIConfiguration -Scope Session -WebOperationTimeoutSeconds 30 -Confirm:$false
+                Connect-viserver -Server $vmHost -user $vmUser -password $vmPassword -ErrorAction Stop
+                Write-host "Connected!" -ForegroundColor green
+                $status = 1
+            } catch [Exception]{
+                
+                $exception = $($_.Exception.Message).Split("`t")
+                logger $exception
+                #$wshell = New-Object -ComObject Wscript.Shell
+                #$wshell.Popup($exception,0,"Check VI Connection",1+4096)
+                Write-Host "Could not connect to VI, try #$i" -ForegroundColor Red
+                if ($i -ge $numTries) {
+                    logger "Unable to connect to VI after $i tries."
+                    $msg = "Could not connect to VI."
+                    $status = 1
+                }
+                Write-Host "Retrying in 30 seconds..."
+                sleep 30
+                $i++
+                #Continue
+            }
+        } Until ($status -eq 1)
     Set-PowerCLIConfiguration -Scope Session -WebOperationTimeoutSeconds 300 -Confirm:$false
 }
 
