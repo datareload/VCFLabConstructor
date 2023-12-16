@@ -475,8 +475,8 @@ Function connectVI ($vmHost, $vmUser, $vmPassword, $numTries)
             $status = 1
             $exception = $($_.Exception.Message).Split("`t")
             logger $exception
-            $wshell = New-Object -ComObject Wscript.Shell
-            $wshell.Popup($exception,0,"Check VI Connection",1+4096)
+            #$wshell = New-Object -ComObject Wscript.Shell
+            #$wshell.Popup($exception,0,"Check VI Connection",1+4096)
             Write-Host "Could not connect to VI, try #$i" -ForegroundColor Red
             if ($i -ge $numTries) {
                 logger "Unable to connect to VI after $i tries."
