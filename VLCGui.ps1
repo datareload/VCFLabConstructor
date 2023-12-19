@@ -4196,7 +4196,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
         } else {
             sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId $($perTaskId.id)
         }
-        $vlcImageID = sddcGetEntity -sddcMgrIP 10.0.0.4 -apiTokens $sddcToken -entityType personalities | Select-Object -ExpandProperty elements | Select-Object -ExpandProperty personalityId -First 1
+        $vlcImageID = sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $sddcToken -entityType personalities | Select-Object -ExpandProperty elements | Select-Object -ExpandProperty personalityId -First 1
     }
     # Ensure vCLS VM's are powered on and working
     logger "Checking vCLS VM's to ensure they power up"
