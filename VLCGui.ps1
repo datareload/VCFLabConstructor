@@ -970,6 +970,13 @@ Function cbConfigurator
         foreach ($anet in $addtlNets.nets){
             #This will add to deadwood but not configure nics on CB 
             $hcxNets +=@($anet.gwip)
+            if ($anet.Name -match "dhcp") {
+                $scopeSubnet = $($anet.gwip.Split("/")[0]).Replace(".1",".0")
+                $scopeSubnetMask = CIDRtoSubnet -inputCIDR $anet.gwip.Split("/")[1]
+                $scopeInterface = "eth0.$($anet.vlan)"
+                $scopeRouter = $($anet.gwip.Split("/")[0])
+                $addDhcpScope.Add($(addDhcpdScope -scSubnet $scopeSubnet -scSubnetMask $scopeSubnetMask -scRouter $scopeRouter -scInt $scopeInterface))
+            }
         }
     }
 
