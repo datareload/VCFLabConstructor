@@ -966,8 +966,10 @@ Function cbConfigurator
 
     } elseif ($global:userOptions.labSKUs -eq "HCXSite2") {
         $hcxNets = [System.Collections.ArrayList]@()
+#        $addtlNets = Get-Content "$scriptDir\conf\site2_additional_networks.json" | ConvertFrom-JSON
         $addtlNets = Get-Content "$scriptDir\conf\site1_additional_networks.json" | ConvertFrom-JSON
-        foreach ($anet in $addtlNets.nets){
+
+        <#foreach ($anet in $addtlNets.nets){
             #This will add to deadwood but not configure nics on CB 
             $hcxNets +=@($anet.gwip)
             if ($anet.Name -match "dhcp") {
@@ -979,6 +981,7 @@ Function cbConfigurator
             }
         }
     }
+    #>
 
     $replaceNet +="echo $($userOptions.masterPassword) | sudo su - <<END`n"
     $replaceNet +="cp /etc/systemd/network/10-eth0.network /etc/systemd/network/10-eth0.network.orig`n"
