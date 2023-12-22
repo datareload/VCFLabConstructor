@@ -979,9 +979,9 @@ Function cbConfigurator
                 $scopeRouter = $($anet.gwip.Split("/")[0])
                 $addDhcpScope.Add($(addDhcpdScope -scSubnet $scopeSubnet -scSubnetMask $scopeSubnetMask -scRouter $scopeRouter -scInt $scopeInterface))
             }
-        }
+        }#>
     }
-    #>
+    
 
     $replaceNet +="echo $($userOptions.masterPassword) | sudo su - <<END`n"
     $replaceNet +="cp /etc/systemd/network/10-eth0.network /etc/systemd/network/10-eth0.network.orig`n"
