@@ -466,21 +466,21 @@ Function connectVI ($vmHost, $vmUser, $vmPassword, $numTries)
         Disconnect-VIServer * -Force -Confirm:$false | Out-Null
     }
         Do {
-            try {
-                Write-host "Connecting to VI, please wait.." -ForegroundColor green
+           try {
+             Write-host "Connecting to VI, please wait.." -ForegroundColor green
                 logger "Connecting to VI, please wait.." -logOnly
-                #Connect to vCenter
+             #Connect to vCenter
                 Set-PowerCLIConfiguration -Scope Session -WebOperationTimeoutSeconds 30 -Confirm:$false
-                Connect-viserver -Server $vmHost -user $vmUser -password $vmPassword -ErrorAction Stop
+             Connect-viserver -Server $vmHost -user $vmUser -password $vmPassword -ErrorAction Stop
                 Write-host "Connected!" -ForegroundColor green
                 $status = 1
             } catch [Exception]{
-                
-                $exception = $($_.Exception.Message).Split("`t")
+             
+             $exception = $($_.Exception.Message).Split("`t")
                 logger $exception
                 #$wshell = New-Object -ComObject Wscript.Shell
                 #$wshell.Popup($exception,0,"Check VI Connection",1+4096)
-                Write-Host "Could not connect to VI, try #$i" -ForegroundColor Red
+             Write-Host "Could not connect to VI, try #$i" -ForegroundColor Red
                 if ($i -ge $numTries) {
                     logger "Unable to connect to VI after $i tries."
                     $msg = "Could not connect to VI."
@@ -490,7 +490,7 @@ Function connectVI ($vmHost, $vmUser, $vmPassword, $numTries)
                 sleep 30
                 $i++
                 #Continue
-            }
+           }
         } Until ($status -eq 1)
     Set-PowerCLIConfiguration -Scope Session -WebOperationTimeoutSeconds 300 -Confirm:$false
 }
@@ -948,7 +948,7 @@ Function cbConfigurator
     $nicstoCreate.Add("uplink2",@{gwip=$($edgeNeighbors[1].peerIP);vlan=$edgeUplinkVlans[1]})
     $nicstoCreate.Add("edgeTep",@{gwip=$($edgeNodeSpecs[0].edgeTepGateway)+"/"+$($edgeNodeSpecs[0].edgeTep1IP).Split('/')[1];vlan=$edgeNodeSpecs[0].edgeTepVLAN})
 
-    if ($global:userOptions.labSKUs -eq "HCXSite1") {
+<#     if ($global:userOptions.labSKUs -eq "HCXSite1") {
         $hcxNets = [System.Collections.ArrayList]@()
         $addDhcpScope = [System.Collections.ArrayList]@()
         $addtlNets = Get-Content "$scriptDir\conf\site1_additional_networks.json" | ConvertFrom-JSON
@@ -966,20 +966,55 @@ Function cbConfigurator
 
     } elseif ($global:userOptions.labSKUs -eq "HCXSite2") {
         $hcxNets = [System.Collections.ArrayList]@()
-#        $addtlNets = Get-Content "$scriptDir\conf\site2_additional_networks.json" | ConvertFrom-JSON
         $addtlNets = Get-Content "$scriptDir\conf\site1_additional_networks.json" | ConvertFrom-JSON
-
-        <#foreach ($anet in $addtlNets.nets){
+        foreach ($anet in $addtlNets.nets){
             #This will add to deadwood but not configure nics on CB 
             $hcxNets +=@($anet.gwip)
-            if ($anet.Name -match "dhcp") {
-                $scopeSubnet = $($anet.gwip.Split("/")[0]).Replace(".1",".0")
-                $scopeSubnetMask = CIDRtoSubnet -inputCIDR $anet.gwip.Split("/")[1]
-                $scopeInterface = "eth0.$($anet.vlan)"
-                $scopeRouter = $($anet.gwip.Split("/")[0])
+        }
+    } #>
+    if ($global:userOptions.labSKUs -eq "HCXSite1") {
+        $hcxNets = [System.Collections.ArrayList]@()
+        $addDhcpScope = [System.Collections.ArrayList]@()
+        $addtlNets1 = Get-Content "$scriptDir\conf\site1_additional_networks.json" | ConvertFrom-JSON
+        foreach ($anet1 in $addtlNets1.nets){ 
+            $nicsToCreate.Add($anet1.Name,@{gwip=$anet1.gwip;vlan=$anet1.vlan})
+            $hcxNets +=@($anet1.gwip)
+            if ($anet1.Name -match "dhcp") {
+                $scopeSubnet = $($anet1.gwip.Split("/")[0]).Replace(".1",".0")
+                $scopeSubnetMask = CIDRtoSubnet -inputCIDR $anet1.gwip.Split("/")[1]
+                $scopeInterface = "eth0.$($anet1.vlan)"
+                $scopeRouter = $($anet1.gwip.Split("/")[0])
                 $addDhcpScope.Add($(addDhcpdScope -scSubnet $scopeSubnet -scSubnetMask $scopeSubnetMask -scRouter $scopeRouter -scInt $scopeInterface))
             }
-        }#>
+        $hcxNets2 = [System.Collections.ArrayList]@()
+        $addtlNets2 = Get-Content "$scriptDir\conf\site2_additional_networks.json" | ConvertFrom-JSON
+        foreach ($anet2 in $addtlNets2.nets){
+            #This will add Site-2 networks to Site-1 deadwood but not configure nics on CB 
+            $hcxNets2 +=@($anet2.gwip)
+			}
+        }
+
+    } elseif ($global:userOptions.labSKUs -eq "HCXSite2") {
+        $hcxNets = [System.Collections.ArrayList]@()
+        $addDhcpScope = [System.Collections.ArrayList]@()
+        $addtlNets1 = Get-Content "$scriptDir\conf\site2_additional_networks.json" | ConvertFrom-JSON
+        foreach ($anet1 in $addtlNets1.nets){ 
+            $nicsToCreate.Add($anet1.Name,@{gwip=$anet1.gwip;vlan=$anet1.vlan})
+            $hcxNets +=@($anet1.gwip)
+            if ($anet1.Name -match "dhcp") {
+                $scopeSubnet = $($anet1.gwip.Split("/")[0]).Replace(".1",".0")
+                $scopeSubnetMask = CIDRtoSubnet -inputCIDR $anet1.gwip.Split("/")[1]
+                $scopeInterface = "eth0.$($anet1.vlan)"
+                $scopeRouter = $($anet1.gwip.Split("/")[0])
+                $addDhcpScope.Add($(addDhcpdScope -scSubnet $scopeSubnet -scSubnetMask $scopeSubnetMask -scRouter $scopeRouter -scInt $scopeInterface))
+            }
+       $hcxNets2 = [System.Collections.ArrayList]@()
+        $addtlNets2 = Get-Content "$scriptDir\conf\site1_additional_networks.json" | ConvertFrom-JSON
+        foreach ($anet2 in $addtlNets2.nets){
+            #This will add Site-1 networks to Site-2 deadwood but not configure nics on CB 
+            $hcxNets2 +=@($anet2.gwip)
+			}
+		}
     }
     
 
@@ -1215,7 +1250,9 @@ Function cbConfigurator
         $reverseAltSiteDNS = "$($revAltSiteArray[($revAltSiteArray.Count-1)..0] -join '.').in-addr.arpa."
         $replaceDNS +="echo upstream_servers[\`"$reverseAltSiteDNS\`"] = \`"$($global:userOptions.altSiteDNSServerIP)\`"`n"
         $replaceDNS +="echo upstream_servers[\`"$($global:userOptions.altSitevcfDomainName).\`"] = \`"$($global:userOptions.altSiteDNSServerIP)\`"`n"
-        $replaceDNS +="echo recursive_acl = \`"$($($hcxNets -join ",").Replace(".1/",".0/") + ",")$($($edgeNeighbors[0].peerIP).Split("/")[0]),$($global:userOptions.altSitemgmtNetSubnet),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
+        $replaceDNS +="echo recursive_acl = \`"$($($hcxNets -join ",").Replace(".1/",".0/") + ",")$($($hcxNets2 -join ",").Replace(".1/",".0/") + ",")$($($edgeNeighbors[0].peerIP).Split("/")[0]),$($global:userOptions.altSitemgmtNetSubnet),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
+     #   $replaceDNS +="echo recursive_acl = \`"$($($hcxNets -join ",").Replace(".1/",".0/") + ",")$($($edgeNeighbors[0].peerIP).Split("/")[0]),$($global:userOptions.altSitemgmtNetSubnet),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
+
 
     } else {
         $replaceDNS +="echo recursive_acl = \`"$($($edgeNeighbors[0].peerIP).Split("/")[0]),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
