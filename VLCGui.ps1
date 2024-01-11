@@ -271,6 +271,10 @@ Function ResetLabels {
     $lblBringupFile.BackColor = [System.Drawing.Color]::"DarkGray"
     $lblDNS.BackColor = [System.Drawing.Color]::"DarkGray"
     $lblNTP.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblLabGateway.BackColor = [System.Drawing.Color]::"DarkGray"
+    $lblLabDNS.BackColor = [System.Drawing.Color]::"DarkGray"
+    $txtLabGateway.BackColor = [System.Drawing.Color]::"white"
+    $txtLabDNS.BackColor = [System.Drawing.Color]::"white"
 }
 Function ValidateFormValues
 { param ($validEntries)
@@ -283,6 +287,20 @@ Function ValidateFormValues
 			} else {
 				$lblHost.BackColor = [System.Drawing.Color]::"Green"
 			}
+        if(-not $txtLabGateway.Text)
+        {
+            $lblLabGateway.BackColor = [System.Drawing.Color]::"Yellow"
+            $txtLabGateway.BackColor = [System.Drawing.Color]::"Yellow"
+        } else {
+            $lblLabGateway.BackColor = [System.Drawing.Color]::"Green"
+        }
+        if(-not $txtLabDNS.Text)
+        {
+            $lblLabDNS.BackColor = [System.Drawing.Color]::"Yellow"
+            $txtLabDNS.BackColor = [System.Drawing.Color]::"Yellow"
+        } else {
+            $lblLabDNS.BackColor = [System.Drawing.Color]::"Green"
+        }
 		if(-not $txtUsername.Text)
 			{
 				$lblHostUser.BackColor = [System.Drawing.Color]::"Red"
@@ -3286,19 +3304,19 @@ $createHostCode = {
 
     logger $vmToGen -logOnly
 	
-      try {
-        Write-host "Connecting to vCenter/Host, please wait.." -ForegroundColor green
-        #Connect to vCenter
-        Connect-viserver $esxhost -user $username -password $password -ErrorAction Stop | Out-Null
+     try {
+     Write-host "Connecting to vCenter/Host, please wait.." -ForegroundColor green
+     #Connect to vCenter
+     Connect-viserver $esxhost -user $username -password $password -ErrorAction Stop | Out-Null
         logger "Connected to vCenter"  -logOnly
-      }
-      catch [Exception]{
-        $status = 1
-        $exception = $_.Exception
-        Write-Host "Could not connect to vCenter" -ForegroundColor Red
-        $msg = "Could not connect to vCenter"
-        logger "$msg $status $error[0]" -logonly
-      }
+     }
+     catch [Exception]{
+     $status = 1
+     $exception = $_.Exception
+     Write-Host "Could not connect to vCenter" -ForegroundColor Red
+     $msg = "Could not connect to vCenter"
+     logger "$msg $status $error[0]" -logonly
+     }
 
 	#Connect-viserver $esxhost -user $username -password $password
 
