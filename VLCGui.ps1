@@ -1,8 +1,8 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v5.1 12/11/2023
+# VLC - Lab Constructor beta v5.1.1 1/25/2023
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com;
-# wlam@vmware.com
+# wlam@vmware.com for some awesome scripting work on ESA HCL!
 # PLEASE See the included install guide PDF file for more info.
 ###################################################################
 param (
@@ -503,12 +503,12 @@ Function connectVI ($vmHost, $vmUser, $vmPassword, $numTries)
                     logger "Unable to connect to VI after $i tries."
                     $msg = "Could not connect to VI."
                     $status = 1
+                } else {
+                    Write-Host "Retrying in 30 seconds..."
+                    Start-Sleep 30
+                    $i++     #Continue
                 }
-                Write-Host "Retrying in 30 seconds..."
-                sleep 30
-                $i++
-                #Continue
-           }
+            }
         } Until ($status -eq 1)
     Set-PowerCLIConfiguration -Scope Session -WebOperationTimeoutSeconds 300 -Confirm:$false
 }
@@ -966,30 +966,6 @@ Function cbConfigurator
     $nicstoCreate.Add("uplink2",@{gwip=$($edgeNeighbors[1].peerIP);vlan=$edgeUplinkVlans[1]})
     $nicstoCreate.Add("edgeTep",@{gwip=$($edgeNodeSpecs[0].edgeTepGateway)+"/"+$($edgeNodeSpecs[0].edgeTep1IP).Split('/')[1];vlan=$edgeNodeSpecs[0].edgeTepVLAN})
 
-<#     if ($global:userOptions.labSKUs -eq "HCXSite1") {
-        $hcxNets = [System.Collections.ArrayList]@()
-        $addDhcpScope = [System.Collections.ArrayList]@()
-        $addtlNets = Get-Content "$scriptDir\conf\site1_additional_networks.json" | ConvertFrom-JSON
-        foreach ($anet in $addtlNets.nets){ 
-            $nicsToCreate.Add($anet.Name,@{gwip=$anet.gwip;vlan=$anet.vlan})
-            $hcxNets +=@($anet.gwip)
-            if ($anet.Name -match "dhcp") {
-                $scopeSubnet = $($anet.gwip.Split("/")[0]).Replace(".1",".0")
-                $scopeSubnetMask = CIDRtoSubnet -inputCIDR $anet.gwip.Split("/")[1]
-                $scopeInterface = "eth0.$($anet.vlan)"
-                $scopeRouter = $($anet.gwip.Split("/")[0])
-                $addDhcpScope.Add($(addDhcpdScope -scSubnet $scopeSubnet -scSubnetMask $scopeSubnetMask -scRouter $scopeRouter -scInt $scopeInterface))
-            }
-        }
-
-    } elseif ($global:userOptions.labSKUs -eq "HCXSite2") {
-        $hcxNets = [System.Collections.ArrayList]@()
-        $addtlNets = Get-Content "$scriptDir\conf\site1_additional_networks.json" | ConvertFrom-JSON
-        foreach ($anet in $addtlNets.nets){
-            #This will add to deadwood but not configure nics on CB 
-            $hcxNets +=@($anet.gwip)
-        }
-    } #>
     if ($global:userOptions.labSKUs -eq "HCXSite1") {
         $hcxNets = [System.Collections.ArrayList]@()
         $addDhcpScope = [System.Collections.ArrayList]@()
@@ -1116,6 +1092,7 @@ Function cbConfigurator
 #    $replaceNet +="echo }`n"
 #    $replaceNet +="echo `n"
     $replaceNet +="echo subnet $DhcpIPSubnet netmask $DhcpSubnetMask {`n"
+    $replaceNet +="echo interface \`"eth0.$($mgmtVlanId)\`"\;`n"
     $replaceNet +="echo   range $($DhcpIPSubnet.Split('.')[0..2] -join '.').$($DhcpIPRange.Split('-')[0]) $($DhcpIPSubnet.Split('.')[0..2] -join '.').$($DhcpIPRange.Split('-')[1])\;`n"
     $replaceNet +="echo   option domain-name-servers $CloudBuilderIP\;`n"
     $replaceNet +="echo   option routers $($DhcpGateway.ToString())\;`n"
@@ -1166,6 +1143,13 @@ Function cbConfigurator
     $replaceNet +="echo [Install]`n"
     $replaceNet +="echo WantedBy=multi-user.target`n"
     $replaceNet +=")>/etc/systemd/system/ethMTU.service`n"
+    $replaceNet +="mkdir /etc/systemd/system/systemd-networkd-wait-online.service.d`n"
+    $replaceNet +="touch /etc/systemd/system/systemd-networkd-wait-online.service.d/override.conf`n"
+    $replaceNet +="(`n"
+    $replaceNet +="echo [Service]`n"
+    $replaceNet +="echo ExecStart=`n"
+    $replaceNet +="echo ExecStart=/usr/lib/systemd/systemd-networkd-wait-online --any`n"
+    $replaceNet +=")>/etc/systemd/system/systemd-networkd-wait-online.service.d/override.conf`n"
     $replaceNet +="systemctl enable ethMTU.service`n"
 
 #NTP Config
@@ -1341,6 +1325,10 @@ Function cbConfigurator
     $replaceDNS +="echo `"@reboot root /bin/sleep 5 && gobgp global rib add $CloudBuilderIPSubnet/$CloudBuilderCIDR -a ipv4`" > /etc/cron.d/gobgpd-route`n"
     $replaceDNS +="echo `"@reboot root /bin/sleep 5 && gobgp global rib add 0.0.0.0/0 -a ipv4`" >> /etc/cron.d/gobgpd-route`n"
     $replaceDNS +="echo nsxt.manager.wait.minutes=45 >> /etc/vmware/vcf/bringup/application.properties`n"
+    $replaceDNS +="echo vsan.hcl.validity.time.stamp=31536000 >> /etc/vmware/vcf/bringup/application.properties`n"
+    #$replaceDNS +="echo cp /home/admin/custom_vsan_esa_hcl.json /opt/vmware/bringup/tmp/`n"
+    #$replaceDNS +="echo chmod 644 /opt/vmware/bringup/tmp/custom_vsan_esa_hcl.json`n"
+    #$replaceDNS +="echo chown vcf_bringup:vcf /opt/vmware/bringup/tmp/custom_vsan_esa_hcl.json`n"
     $replaceDNS +="chkconfig gobgpd on`n"
     $replaceDNS +="chkconfig maradns on`n"
     $replaceDNS +="chkconfig maradns.deadwood on`n"
@@ -1368,6 +1356,8 @@ Function cbConfigurator
     Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir\etc\maradns-2.0.16-1.x86_64.rpm" -Destination "/home/admin/" -LocalToGuest -VM $CBName -HostUser $($userOptions.username) -HostPassword $($userOptions.password) -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
 
     Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir\etc\gobgp-2.9.0-2.ph3.x86_64.rpm" -Destination "/home/admin/" -LocalToGuest -VM $CBName -HostUser $($userOptions.username) -HostPassword $($userOptions.password) -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
+
+    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir\conf\custom_vsan_esa_hcl.json" -Destination "/home/admin/" -LocalToGuest -VM $CBName -HostUser $($userOptions.username) -HostPassword $($userOptions.password) -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
 
     Invoke-VMScript -ScriptType Bash -Server $($userOptions.esxhost) -GuestUser root -GuestPassword $($userOptions.masterPassword) -VM $CBName -HostUser $($userOptions.username) -HostPassword $($userOptions.password) -ScriptText "rpm -i /home/admin/maradns-2.0.16-1.x86_64.rpm;rpm -i /home/admin/gobgp-2.9.0-2.ph3.x86_64.rpm;chmod 777 /home/admin/CBConfig.bash;/home/admin/CBConfig.bash"
 
@@ -1921,8 +1911,10 @@ function sddcCreateEntity ($sddcMgrIP, $apiTokens, $payLoad, [ValidateSet("edge-
             }
     }  
 } 
-function sddcTaskPoll ($sddcMgrIP, $apiTokens, $taskId) {
+function sddcTaskPoll ($sddcMgrIP, $apiTokens, $taskId, $wldVCInfo) {
     $apiCall = 0
+    $runvCLSFixOnce = 0
+    $rebootHosts = 0
     while ($apiCall -ne $null) {
             try {
                 $taskPollParms = @{
@@ -2006,7 +1998,21 @@ function sddcTaskPoll ($sddcMgrIP, $apiTokens, $taskId) {
                             } else {
                             $currTask = $taskInfo
                             } 
-                        
+                            if ($currTask.name -eq "Deploy NSX Manager" -and !$runvCLSFixOnce){
+                                logger "Checking vCLS VM's to ensure they power up"
+                                vclsFix -vcServer $wldVCInfo.vc -vcUser $wldVCInfo.ssoUser -vcPass $wldVCInfo.ssoPass -hostUser "root" -hostPass $($userOptions.masterPassword)
+                                $runvCLSFixOnce = 1
+                            } elseif (($currTask.name -eq "Create Transport Node Collection" -and !$rebootHosts)){
+                                Start-Sleep 30
+                                connect-viserver -server $wldVCInfo.vc -user $wldVCInfo.ssoUser -Password $wldVCInfo.ssoPass 
+                                logger "Rebooting Hosts to work around NSX not being installed"
+                                $wldHosts = Get-VMHost -Server $wldVCInfo.vc 
+                                foreach($wldHost in $wldHosts){
+                                   # Restart-VMHost -Host $wldHost -Force:$true -Confirm:$false
+                                }
+                                $rebootHosts = 1
+                                Disconnect-VIServer * -Force -Confirm:$false | Out-Null
+                            }
                         if ($($currTask.name) -ne $thisTask -and $($currTask.name) -ne "") {
                             logger "Current task: $($currTask.name)"
                             $thisTask = $($currTask.name)
@@ -2127,7 +2133,7 @@ function vclsFix ($vcServer, $vcUser, $vcPass, $hostUser, $hostPass){
                  do {
                         foreach($vm in $vms) {
                             $vCLSvm = get-vm -name vCLS* | Where-Object {$_.PowerState -match "PoweredOff"}
-                            logger "Waiting for EVC mode to be set by vCenter"
+                            logger "Waiting for EVC mode to be set by vCenter - 20 attempts before moving on"
                             $evcChkCnt = 0
                             
                             do {
@@ -2137,7 +2143,7 @@ function vclsFix ($vcServer, $vcUser, $vcPass, $hostUser, $hostPass){
                                 Start-Sleep 10
                                 $evcChkCnt++
 
-                            } until ($evcSet -gt 0 -or $evcChkCnt -eq 5)
+                            } until ($evcSet -gt 0 -or $evcChkCnt -eq 20)
 
                             logger "Setting HW version 14 and disabling EVC mode on vCLS VM"
                             $vCLSvm | Set-VM -Version v14 -Confirm:$false
@@ -2163,6 +2169,173 @@ function vclsFix ($vcServer, $vcUser, $vcPass, $hostUser, $hostPass){
         disconnect-viserver * -Confirm:$false -Force | Out-Null
     }
 }
+function createHostCode ($vmToGen, $userOptions, $logpath, $dateFormat){
+
+    # Set props from UI	
+	$esxhost=$userOptions.esxhost
+	$username=$userOptions.username
+	$password=$userOptions.password
+    $masterPassword=$userOptions.masterPassword
+	$netName=$userOptions.netName
+    $hostCluster=$userOptions.cluster
+    $vmPrefix=$userOptions.nestedVMPrefix
+    $vsanSA=$userOptions.vsanSA
+	
+	$Typeguestdisk=$userOptions.Typeguestdisk
+	$ds=$userOptions.ds
+	$guestOS=$userOptions.guestOS # Apparently vmkernel6guest is for 6.5?!
+	
+    # Set props from JSON
+    $VM_name="$vmPrefix$($vmToGen.name)"
+	$numcpu=$vmToGen.cpus
+	$GBram=$vmToGen.mem
+	$GBguestdisks=$vmToGen.disks.split(',')
+	$totalConfigDevices = $($GBguestdisks.Count + 7)
+    if($vsanSA -match "OSA"){$totalConfigDevices++}
+    $mgmtIP=$vmToGen.mgmtIP
+
+    #$logfile = "$logPath\$VM_Name-VLC-Log-$(get-date -format $dateFormat).txt"
+
+    $config = ""
+    $config = New-Object VMware.Vim.VirtualMachineConfigSpec
+    $config.Name = $VM_name
+    $config.Files = New-Object VMware.Vim.VirtualMachineFileInfo
+    $config.Files.VmPathName = "[$ds]"
+    $config.NumCPUs = $numcpu
+    $config.NestedHVEnabled = $true
+    $config.MemoryMB = $([INT]$GBram * 1KB)
+    $config.NumCoresPerSocket = $numcpu
+    $config.Firmware = 'efi'
+    $config.GuestId = 'otherGuest64'
+    $config.DeviceChange = New-Object VMware.Vim.VirtualDeviceConfigSpec[] ($totalConfigDevices)
+    $config.DeviceChange[0] = New-Object VMware.Vim.VirtualDeviceConfigSpec
+    $config.DeviceChange[0].Device = New-Object VMware.Vim.VirtualMachineVideoCard
+    $config.DeviceChange[0].Device.NumDisplays = 1
+    $config.DeviceChange[0].Device.UseAutoDetect = $false
+    $config.DeviceChange[0].Device.ControllerKey = 100
+    $config.DeviceChange[0].Device.UnitNumber = 0
+    $config.DeviceChange[0].Device.Use3dRenderer = 'automatic'
+    $config.DeviceChange[0].Device.Enable3DSupport = $false
+    $config.DeviceChange[0].Device.VideoRamSizeInKB = 4096
+    $config.DeviceChange[0].Operation = 'add'
+    $config.DeviceChange[1] = New-Object VMware.Vim.VirtualDeviceConfigSpec
+    $config.DeviceChange[1].Device = New-Object VMware.Vim.ParaVirtualSCSIController
+    $config.DeviceChange[1].Device.SharedBus = 'noSharing'
+    $config.DeviceChange[1].Device.ScsiCtlrUnitNumber = 7
+    $config.DeviceChange[1].Device.Key = -103
+    $config.DeviceChange[1].Device.BusNumber = 0
+    $config.DeviceChange[1].Operation = 'add'
+    $config.DeviceChange[2] = New-Object VMware.Vim.VirtualDeviceConfigSpec
+    $config.DeviceChange[2].Device = New-Object VMware.Vim.VirtualNVMEController
+    $config.DeviceChange[2].Device.Key = -106
+    $config.DeviceChange[2].Device.BusNumber = 0
+    $config.DeviceChange[2].Operation = 'add'
+    $config.DeviceChange[3] = New-Object VMware.Vim.VirtualDeviceConfigSpec
+    $config.DeviceChange[3].FileOperation = 'create'
+    $config.DeviceChange[3].Device = New-Object VMware.Vim.VirtualDisk
+    $config.DeviceChange[3].Device.Backing = New-Object VMware.Vim.VirtualDiskFlatVer2BackingInfo
+    $config.DeviceChange[3].Device.Backing.FileName = "[$ds]"
+    $config.DeviceChange[3].Device.Backing.ThinProvisioned = $true
+    $config.DeviceChange[3].Device.Backing.DiskMode = 'persistent'
+    $config.DeviceChange[3].Device.ControllerKey = -103
+    $config.DeviceChange[3].Device.UnitNumber = 0
+    $config.DeviceChange[3].Device.CapacityInKB = $([INT]$GBguestdisks[0]*1MB)
+    $config.DeviceChange[3].Operation = 'add'
+    if($vsanSA -match "OSA"){
+        $config.DeviceChange[4] = New-Object VMware.Vim.VirtualDeviceConfigSpec
+        $config.DeviceChange[4].FileOperation = 'create'
+        $config.DeviceChange[4].Device = New-Object VMware.Vim.VirtualDisk
+        $config.DeviceChange[4].Device.Backing = New-Object VMware.Vim.VirtualDiskFlatVer2BackingInfo
+        $config.DeviceChange[4].Device.Backing.FileName = "[$ds]"
+        $config.DeviceChange[4].Device.Backing.ThinProvisioned = $true
+        $config.DeviceChange[4].Device.Backing.DiskMode = 'persistent'
+        $config.DeviceChange[4].Device.ControllerKey = -103
+        $config.DeviceChange[4].Device.UnitNumber = 1
+        $config.DeviceChange[4].Device.CapacityInKB = $([INT]$GBguestdisks[1]*1MB)
+        $config.DeviceChange[4].Operation = 'add'
+        $numDevice = 5
+    } else {
+        $numDevice = 4
+    }
+    $numUnit = 0
+    $remainingDisks = $($GBguestdisks | Select-Object -Skip 2)
+    foreach ($nvmeDisk in $remainingDisks) {
+        $config.DeviceChange[$numDevice] = New-Object VMware.Vim.VirtualDeviceConfigSpec
+        $config.DeviceChange[$numDevice].FileOperation = 'create'
+        $config.DeviceChange[$numDevice].Device = New-Object VMware.Vim.VirtualDisk
+        $config.DeviceChange[$numDevice].Device.Backing = New-Object VMware.Vim.VirtualDiskFlatVer2BackingInfo
+        $config.DeviceChange[$numDevice].Device.Backing.FileName = "[$ds]"
+        $config.DeviceChange[$numDevice].Device.Backing.ThinProvisioned = $true
+        $config.DeviceChange[$numDevice].Device.Backing.DiskMode = 'persistent'
+        $config.DeviceChange[$numDevice].Device.ControllerKey = -106
+        $config.DeviceChange[$numDevice].Device.UnitNumber = $numUnit
+        $config.DeviceChange[$numDevice].Device.CapacityInKB = $([INT]$nvmeDisk*1MB)
+        $config.DeviceChange[$numDevice].Operation = 'add'
+        $numDevice ++
+        $numUnit ++
+    }
+	# Create VM
+        try {
+            write-host "Creation of VM initiated"  -foreground green
+            logger "Creation of VM initiated" -logOnly
+            if ($hostCluster -eq $null -Or $hostCluster -eq "") {
+                $vmHost = Get-VMHost
+                #New-VM -Name $VM_Name -VMHost $vmHost -numcpu $numcpu -corespersocket $numcpu -MemoryGB $GBram -DiskGB $($GBguestdisks[0]) -DiskStorageFormat $Typeguestdisk -Datastore $ds -NetworkName $netName| Out-Null
+                $ComputeResourceView = get-view -id ($vmHost.extensiondata.Parent)
+                $pool = $ComputeResourceView.resourcepool
+                $_this = Get-View -id $(get-datacenter -vmhost $vmHost).extensiondata.VMFolder
+                
+                } else {
+                #New-VM -Name $VM_Name -numcpu $numcpu -corespersocket $numcpu -MemoryGB $GBram -DiskGB $($GBguestdisks[0]) -DiskStorageFormat $Typeguestdisk -Datastore $ds -ResourcePool $hostCluster -NetworkName $netName -ErrorAction Stop | Out-Null
+                $pool = $(get-cluster -name $hostCluster).ExtensionData.ResourcePool
+                $_this = Get-View -id $(get-datacenter | Select-Object -First 1).extensiondata.VMFolder
+            }
+            $_this.CreateVM($config, $pool, $null)
+            New-NetworkAdapter -VM $VM_Name -NetworkName $netName -startConnected:$true -Type VMXNET3 | Out-Null
+            New-NetworkAdapter -VM $VM_Name -NetworkName $netName -startConnected:$true -Type VMXNET3 | Out-Null
+            New-NetworkAdapter -VM $VM_Name -NetworkName $netName -startConnected:$true -Type VMXNET3 | Out-Null
+            New-NetworkAdapter -VM $VM_Name -NetworkName $netName -startConnected:$true -Type VMXNET3 | Out-Null
+    
+      }
+    
+      catch [Exception]{
+        $exception = $_.Exception
+        Write-Host "Could not create VM $VM_Name $exception" -ForegroundColor Red
+        logger "Could not create VM $VM_Name $exception"
+        exit
+      }
+
+	write-host "Creation of host $VM_Name completed"  -foreground green
+    logger "Creation of host $VM_Name completed" -logOnly
+	
+	write-host "Gathering MAC address"  -foreground green
+
+    try {
+     Start-VM -VM $VM_Name | out-null
+        logger "Attempting to start VM to generate MAC" -logOnly
+   }
+       catch [Exception]{
+     $status = 1
+     $exception = $_.Exception
+     Write-Host "Could not Start VM" -ForegroundColor Red
+     $msg = "Could not Start VM"
+     logger "$msg $status $($error[0])" -logOnly
+        Write-Error "Could not Start VM" -ErrorAction Stop
+   }
+
+	#Start-Sleep 5
+	write-host "Stopping VM"  -foreground yellow
+    logger "Stopping VM" -logOnly
+	Stop-VM -VM $VM_Name -confirm:$false | out-null
+	
+        Do {
+            $vmPower = Get-VM $VM_Name
+            write-host "Waiting to STOP!"
+            Start-Sleep 2
+         } until ( $vmPower.Powerstate -eq "Poweredoff" )
+
+}
+#endregion Host Creation
 
 #endregion Functions
 
@@ -3254,184 +3427,6 @@ if ($isCLI) {
 #endregion Main Form
 }
 
-#region Host Creation Scriptblock
-
-# Host Creation Scripblock
-$createHostCode = {
-
-	param($vmToGen, $userOptions, $logpath, $dateFormat)
-
-    # Set props from UI	
-	$esxhost=$userOptions.esxhost
-	$username=$userOptions.username
-	$password=$userOptions.password
-    $masterPassword=$userOptions.masterPassword
-	$netName=$userOptions.netName
-    $hostCluster=$userOptions.cluster
-    $vmPrefix=$userOptions.nestedVMPrefix
-	
-	$Typeguestdisk=$userOptions.Typeguestdisk
-	$ds=$userOptions.ds
-	$guestOS=$userOptions.guestOS # Apparently vmkernel6guest is for 6.5?!
-	
-    # Set props from JSON
-    $VM_name="$vmPrefix$($vmToGen.name)"
-	$numcpu=$vmToGen.cpus
-	$GBram=$vmToGen.mem
-	$GBguestdisks=$vmToGen.disks.split(',')
-	$mgmtIP=$vmToGen.mgmtIP
-
-    $logfile = "$logPath\$VM_Name-VLC-Log-$(get-date -format $dateFormat).txt"
-
-    Function logger($strMessage, [switch]$logOnly)
-    {
-	    $curDateTime = get-date -format "hh:mm:ss"
-	    $entry = "$curDateTime :> $strMessage"
-	    if (!$logOnly) {
-		    write-host $entry
-		    $entry | out-file -Filepath $logfile -append
-	    } else {
-		    $entry | out-file -Filepath $logfile -append
-	    }
-    }
-
-	
-    # Import PowerCLI Module
-
-    Import-Module -Name VMware.VimAutomation.Core
-
-	$WarningPreference = "SilentlyContinue"
-
-    logger $vmToGen -logOnly
-	
-     try {
-     Write-host "Connecting to vCenter/Host, please wait.." -ForegroundColor green
-     #Connect to vCenter
-     Connect-viserver $esxhost -user $username -password $password -ErrorAction Stop | Out-Null
-        logger "Connected to vCenter"  -logOnly
-     }
-     catch [Exception]{
-     $status = 1
-     $exception = $_.Exception
-     Write-Host "Could not connect to vCenter" -ForegroundColor Red
-     $msg = "Could not connect to vCenter"
-     logger "$msg $status $error[0]" -logonly
-     }
-
-	#Connect-viserver $esxhost -user $username -password $password
-
-	# Create VM
-
-        try {
-            write-host "Creation of VM initiated"  -foreground green
-            logger "Creation of VM initiated" -logOnly
-        if ($hostCluster -eq $null -Or $hostCluster -eq "") {
-            $vmHost = Get-VMHost
-               New-VM -Name $VM_Name -VMHost $vmHost -numcpu $numcpu -corespersocket $numcpu -MemoryGB $GBram -DiskGB $($GBguestdisks[0]) -DiskStorageFormat $Typeguestdisk -Datastore $ds -NetworkName $netName| Out-Null
-        } else {
-            $hostCluster = Get-Cluster $hostCluster
-            New-VM -Name $VM_Name -numcpu $numcpu -corespersocket $numcpu -MemoryGB $GBram -DiskGB $($GBguestdisks[0]) -DiskStorageFormat $Typeguestdisk -Datastore $ds -ResourcePool $hostCluster -NetworkName $netName -ErrorAction Stop | Out-Null
-        }
-    
-      }
-    
-      catch [Exception]{
-        $exception = $_.Exception
-        Write-Host "Could not create VM $VM_Name $exception" -ForegroundColor Red
-        logger "Could not create VM $VM_Name $exception"
-        exit
-      }
-
-	write-host "Removing NIC"  -foreground green
-	logger "Removing NIC" -logOnly
-    # Remove Default E1000E NIC
-	$remNic=Get-NetworkAdapter -VM $VM_Name
-	if ($remNic) {
-	    Remove-NetworkAdapter -NetworkAdapter $remNic -Confirm:$false | Out-Null
-    }
-	write-host "Fixing SCSI Controller"  -foreground green
-    logger "Fixing SCSI Controller" -logOnly
-    # Change to Paravirtual (vSphere 7)
-    $error.clear()
-    $chgScsi=Get-SCSIController -VM $VM_Name
-    ####<New Debug Code>####
-    logger "Current HBA: $($chgScsi.Type)"
-    Try {
-        Set-SCSIController $chgScsi -Type ParaVirtual -Confirm:$false
-    } Catch {
-        logger "Error setting SCSI HBA: $error[0]" -logOnly
-        write-host "Error setting SCSI HBA: $error[0]"
-        exit
-    }
-    logger "New HBA: $(Get-SCSIController -VM $VM_Name | Select -ExpandProperty Type)"
-    ####<New Debug Code>####
-	write-host "Creating Disks"  -foreground green
-	logger "Creating Disks" -logOnly
-    # Add remainder of disks from JSON
-	for ($i=1; $i -le ($GBguestdisks.Count-1); $i++) {
-		New-HardDisk -CapacityGB $($GBguestdisks[$i]) -VM $VM_name -Datastore $ds -ThinProvisioned:$true -Confirm:$false | Out-Null
-        Get-VM $VM_Name | New-AdvancedSetting -Name "scsi0:$($i).virtualSSD" -Value TRUE -Confirm:$false
-	}
-	 
-	write-host "Fiddling with NICs"  -foreground green
-    logger "Fiddling with NICs" -logOnly
-    # Install hot new VMXNET3s
-	New-NetworkAdapter -VM $VM_Name -NetworkName $netName -startConnected:$true -Type VMXNET3
-	New-NetworkAdapter -VM $VM_Name -NetworkName $netName -startConnected:$true -Type VMXNET3
-	New-NetworkAdapter -VM $VM_Name -NetworkName $netName -startConnected:$true -Type VMXNET3
-	New-NetworkAdapter -VM $VM_Name -NetworkName $netName -startConnected:$true -Type VMXNET3
-
-	write-host "Setting Guest OS Type"  -foreground green
-    logger "Setting Guest OS Type" -logOnly
-	# Set Guest OS Type
-	Set-VM -VM $VM_Name -GuestId $guestOS -Confirm:$false | Out-Null
-
-	write-host "Enabling VHV for Nested"  -foreground green
-    logger "Enabling VHV for Nested" -logOnly
-	# Enable VHVF
-	$nestVM = Get-VM $VM_name
-	$spec = New-Object VMware.Vim.VirtualMachineConfigSpec
-	$spec.NestedHVEnabled = $true
-	$nestVM.ExtensionData.ReconfigVM($spec) | Out-Null
-	
-	write-host "Creation of host $VM_Name completed"  -foreground green
-    logger "Creation of host $VM_Name completed" -logOnly
-	
-	write-host "Gathering MAC address"  -foreground green
-
-    try {
-        Start-VM -VM $VM_Name
-        logger "Attempting to start VM" -logOnly
-    }
-        catch [Exception]{
-        $status = 1
-        $exception = $_.Exception
-        Write-Host "Could not Start VM" -ForegroundColor Red
-        $msg = "Could not Start VM"
-        logger "$msg $status $($error[0])" -logOnly
-        Write-Error "Could not Start VM" -ErrorAction Stop
-    }
-
-	Start-Sleep 5
-	write-host "Stopping VM"  -foreground red
-    logger "Stopping VM" -logOnly
-	Stop-VM -VM $VM_Name -confirm:$false | out-null
-	
-        Do {
-            $vmPower = Get-VM $VM_Name
-            write-host "Waiting to STOP!"
-            Start-Sleep 5
-         } until ( $vmPower.Powerstate -eq "Poweredoff" )
-
-    Start-Sleep 5
-	$hostNetAdapter = Get-NetworkAdapter -VM $VM_Name
-	$hostMacAddress = "01-" + $hostNetAdapter[0].MacAddress -replace ":","-"
-	write-host "MAC address is ${hostMacAddress}      "  -foreground green
-    logger "MAC address is ${hostMacAddress}" -logOnly
-	Start-Sleep 5
-}
-#endregion Host Creation
-
 #region Host Startup Scriptblock
 #Host Startup Scriptblock
 $startupHostCode = {
@@ -3509,7 +3504,7 @@ logger "--------------------END-Inputs-----------------------"
 # Parse Host JSONs
 $hostsToBuild = New-Object System.Collections.Arraylist
 if ($addHostsJson -ne "") {
-    $genvms = Get-Content -raw $addHostsJson | ConvertFrom-Json                                                                                                                                                                    
+    $genvms = Get-Content -raw $addHostsJson | ConvertFrom-Json
     $genvms.genVM | ForEach-Object -Process {$hostsToBuild.Add($_)} 
 }
 
@@ -3528,8 +3523,7 @@ if ($global:bringUpOptions.hostSpecs) {
         
             $hostsToBuild.Add($(New-Object PSObject -Property @{name="$($templateHost.hostname)";cpus="$($genvms.genVM[$($hostCnt)].cpus)";mem="$($genvms.genVM[$($hostCnt)].mem)";disks="$($genvms.genVM[$($hostCnt)].disks)";mgmtip="$($ipInfo.ipAddress)";subnetmask="$(CIDRtoSubnet $($networkInfo.subnet.Split("/")[1]))";ipgw="$($hostGateway)"}))
             $hostCnt++
-    }                                                                                                                                      
-
+    }
 }
 
 
@@ -3592,7 +3586,7 @@ If (!$chkHostOnly.Checked) {
         #Get the MoRef of the Cluster in case it has spaces or illegal characters
         $targetCluster = Get-Cluster | Where-Object {$_.Name -eq $clusterOVF}
         $clusterMoref = $targetCluster.ExtensionData.MoRef.Value
-        $ovfArgs.Add("`"vi://${usernameOVF}:${passwordOVF}@${esxhostOVF}:443?moref=vim.ClusterComputeResource:${clusterMoref}`"")
+        $ovfArgs.Add("`"vi://'${usernameOVF}':'${passwordOVF}'@${esxhostOVF}:443?moref=vim.ClusterComputeResource:${clusterMoref}`"")
     }
     $getKey = "R"
     Do {
@@ -3721,6 +3715,7 @@ extractvSphereISO($userOptions.vSphereISOLoc)
 Set-ItemProperty $scriptDir\$tempDir\ISO\ISOLINUX.BIN -name IsReadOnly -value $false
 Set-ItemProperty $scriptDir\$tempDir\ISO\ISOLINUX.CFG -name IsReadOnly -value $false
 Set-ItemProperty $scriptDir\$tempDir\ISO\BOOT.CFG -name IsReadOnly -value $false
+Set-ItemProperty $scriptDir\$tempDir\ISO\EFI\BOOT\BOOT.CFG -name IsReadOnly -value $false
 
 # Create Hosts
 logger "Starting creation of $numHosts hosts found in JSON and template."
@@ -3732,51 +3727,14 @@ $hostJobs=@()
 
 ForEach ($hostVM in $hostsToBuild) {
 
-	$jobName=$hostVM.name
-	$hostJobs += Start-Job -Name $jobName -ArgumentList $hostVM,$userOptions,$logPathDir,$global:dateFormat -ScriptBlock $createHostCode
+#	$jobName=$hostVM.name
+#a	$hostJobs += Start-Job -Name $jobName -ArgumentList $hostVM,$userOptions,$logPathDir,$global:dateFormat -ScriptBlock $createHostCode
 	logger "Creating host $($hostVM.name)" "-log"
+	createHostCode -vmToGen $hostVM -userOptions $userOptions -logpath $logPathDir -dateFormat $dateFormat
 
 }
 
 write-host "VCF Lab Constructor Host Creation Start Time: "$(get-date -Format 'hh:mm') -foreground black -background green
-$oldPos = $host.UI.RawUI.CursorPosition
-
-Do {
-	$host.UI.RawUI.CursorPosition = $oldPos
-	
-    ForEach ($Job in $hostJobs)
-		
-    {   
-		$babyJob=$Job.ChildJobs[0]
-
-		write-host $(get-date -Format 'hh:mm') $Job.Name "Status: " -foreground green
-        $rec = New-Object System.Management.Automation.Host.Rectangle(0,$($host.UI.RawUI.CursorPosition.Y-1),10,$($host.UI.RawUI.CursorPosition.Y-1))
-        $currentStateGrab = $host.UI.RawUI.GetBufferContents($rec)
-        $currentState = ""
-        foreach ($curChar in $currentStateGrab) { $currentState = $currentState + $curChar}
-        if (!($currentState -match $babyJob.Information)) {
-            $overWrite = $host.UI.RawUI.CursorPosition
-            [Console]::Write("{0, -$($Host.UI.RawUI.BufferSize.Width)}" -f " ")
-            $host.UI.RawUI.CursorPosition = $overWrite
-        }
-
-        if ($babyJob.Information.Count -gt 0) {
-		    write-host $babyJob.Information.Item($($babyJob.Information.Count)-1)
-        } else {
-            write-host "Initializing Job..."
-        }
-    }
-
-    Start-Sleep -Seconds 5
-
-} Until (($hostJobs | Where-Object State -eq "Running").Count -eq 0)
-
-Remove-Job -Job $hostJobs
-
-write-host "All hosts created, starting additional config."
-logger "Nested Hosts Creation Time: $($totalTime.Elapsed)"
-# Build case statements
-Connect-viserver $esxhost -user $username -password $password
 
 $caseStatement = "case `$MAC_ADDR in`n"
 
@@ -3820,18 +3778,30 @@ byteWriter $isoLinuxCFG "ISO\ISOLINUX.CFG"
 logger "Setting BOOT.CFG info...                "
 
 $curBootCFG = Get-Content "$scriptDir\$tempDir\ISO\BOOT.CFG"
+$curEFIBootCFG = Get-Content "$scriptDir\$tempDir\ISO\EFI\BOOT\BOOT.CFG"
 $bootCFGCount = 0 
 foreach ($bootCfgLine in $curBootCFG) {
 
     if ($bootCfgLine.Contains("kernelopt")) {
 
         $curBootCFG[$bootCFGCount] = $curBootCFG[$bootCFGCount] + " ks=cdrom:/VLC.CFG"
-
         }
         $bootCFGCount++
 
 }
+$bootCFGCount = 0 
+foreach ($bootCfgLine in $curEFIBootCFG) {
+
+    if ($bootCfgLine.Contains("kernelopt")) {
+
+        $curEFIBootCFG[$bootCFGCount] = $curEFIBootCFG[$bootCFGCount] + " ks=cdrom:/VLC.CFG"
+        }
+        $bootCFGCount++
+
+}
+
 $curBootCFG | Set-Content "$scriptDir\$tempDir\ISO\BOOT.CFG"
+$curEFIBootCFG | Set-Content "$scriptDir\$tempDir\ISO\EFI\BOOT\BOOT.CFG"
 			
 logger "Setting VLC.cfg info...                "
 	
@@ -3902,7 +3872,7 @@ byteWriter $kscfg "ISO\VLC.CFG"
 $isoExe = "$scriptDir\bin\mkisofs.exe"
 $scriptDirUnix = $scriptDir.Replace("\","/")
 $currIso = "$(get-date -Format $global:dateFormat)-VLC_vsphere.iso"
-$isoExeArg = "-relaxed-filenames -J -o '$scriptDir\$tempDir\$currIso' -b ISOLINUX.BIN -c BOOT.CAT -no-emul-boot -boot-load-size 4 -boot-info-table -ldots '$scriptDirUnix/$tempDir/ISO'"
+$isoExeArg = "-iso-level 4 -relaxed-filenames -J -b ISOLINUX.BIN -no-emul-boot -boot-load-size 8 -hide boot.catalog -eltorito-alt-boot -b EFIBOOT.IMG -no-emul-boot -ldots -o '$scriptDir\$tempDir\$currIso' '$scriptDirUnix/$tempDir/ISO'"
 
 Invoke-Expression -command "& '$isoExe' $isoExeArg" | out-null
 
@@ -4148,6 +4118,7 @@ public static class Dummy {
     $domainManagercfg += "sed -i 's/vsan.healthcheck.enabled=true/vsan.healthcheck.enabled=false/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/vsan.hcl.update.enabled=true/vsan.hcl.update.enabled=false/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/vsan.precheck.enabled=true/vsan.precheck.enabled=false/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
+    $domainManagercfg += "sed -i 's/nsxt.cpu.reservation.medium=6000/nsxt.cpu.reservation.medium=0/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/products.notApplicable=PKS,HORIZON/products.notApplicable=PKS,HORIZON,VRA,VROPS,WSA,VRLI/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "reboot`n"
     #$domainManagercfg += "systemctl restart domainmanager`n"    
@@ -4200,7 +4171,7 @@ public static class Dummy {
         } until(Test-NetConnection $sddcMgrIP -Port 22| ? { !$_.tcptestsucceeded } )#>
 
     logger "Removing Memory reservation on NSX Manager"
-    Get-VM -Server $conVcenter -Name $nsxMgtVM | Get-VMResourceConfiguration |Set-VMResourceConfiguration -MemReservationGB 0
+    Get-VM -Server $conVcenter -Name $nsxMgtVM | Get-VMResourceConfiguration |Set-VMResourceConfiguration -MemReservationGB 0 -CpuReservationMhz 0
     logger "Disabling VM Monitoring in HA and setting DRS to conservative" 
     configDrsHACluster $(Get-Cluster -Server $conVcenter -Name $mgmtClusterName)
 
@@ -4264,8 +4235,8 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
         $vlcImageID = sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $sddcToken -entityType personalities | Select-Object -ExpandProperty elements | Select-Object -ExpandProperty personalityId -First 1
     }
     # Ensure vCLS VM's are powered on and working
-    logger "Checking vCLS VM's to ensure they power up"
-    vclsFix -vcServer $managementVCIP -vcUser $ssoCredential -vcPass $ssoAdminPassword -hostUser "root" -hostPass $($userOptions.masterPassword)
+    #logger "Checking vCLS VM's to ensure they power up"
+    #vclsFix -vcServer $managementVCIP -vcUser $ssoCredential -vcPass $ssoAdminPassword -hostUser "root" -hostPass $($userOptions.masterPassword)
 
 
     if ([bool]$global:userOptions.deployEdgeCluster) {
@@ -4452,7 +4423,11 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
         logger "Creating Bulk Commission Host file to match API for HostSpecs of first 3 hosts"
         $bulkHostPayload | ForEach-Object {$_.fqdn = "$($_.fqdn).$($global:userOptions.vcfDomainName)"}
         $bulkHostPayload | Where-Object { $_.fqdn } | Add-Member -MemberType NoteProperty -name networkPoolId -Value $networkPoolID
-        $bulkHostPayload | Where-Object { $_.fqdn } | Add-Member -MemberType NoteProperty -name storageType -Value VSAN
+        if ($userOptions.vsanSA -match "OSA") {
+            $bulkHostPayload | Where-Object { $_.fqdn } | Add-Member -MemberType NoteProperty -name storageType -Value VSAN
+        } else {
+            $bulkHostPayload | Where-Object { $_.fqdn } | Add-Member -MemberType NoteProperty -name storageType -Value VSAN_ESA
+        }       
         $bulkHostPayload | Where-Object { $_.fqdn } | Add-Member -MemberType NoteProperty -name username -Value root
         $bulkHostPayload | Where-Object { $_.fqdn } | Add-Member -MemberType NoteProperty -name password -Value $global:userOptions.masterPassword
         logger "Calling Host Commission API - this takes < 15 minutes"
@@ -4476,7 +4451,11 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                 logger "Obtaining deployed Mgmt Domain ID"
                 $sddcDomainId = $($(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "domains") | Select-Object -ExpandProperty elements | Select-Object -ExpandProperty id)
                 logger "Loading CLUSTER json file"
-                $clusterPayload = $(get-content $scriptdir\automated_api_jsons\CLUSTER_API.json | ConvertFrom-JSON)
+                if ($userOptions.vsanSA -match "OSA") {
+                    $clusterPayload = $(get-content $scriptdir\automated_api_jsons\CLUSTER_API.json | ConvertFrom-JSON)
+                } else {
+                    $clusterPayload = $(get-content $scriptdir\automated_api_jsons\CLUSTER_API_ESA.json | ConvertFrom-JSON)
+                }
                 logger "Set Domain ID"
                 $clusterPayload.domainId = $sddcDomainID
                 logger "Set Image ID"
@@ -4492,8 +4471,8 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                 $($clusterPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\clusterPayload-$(get-date -Format MMddyy-hhmmss).json
                 $clusterCreateTask = $(sddcCreateEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -payload $($clusterPayload | ConvertTo-JSON -Depth 20)  -entityType "clusters")
                 if ([string]::IsNullOrEmpty($clusterCreateTask)) {
-                Logger "Unable to obtain Task ID for this operation, please check the domainmanager log for more info."
-                break
+                    Logger "Unable to obtain Task ID for this operation, please check the domainmanager log for more info."
+                    break
                 } else {
                     sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId ($clusterCreateTask.id)
                 }
@@ -4502,14 +4481,26 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
             } elseif ($($global:userOptions.buildOps -match "WLD Domain") -or $($global:userOptions.buildOps -match "ISOWLD Domain")) {
                 #Build WLD
                 logger "Loading DOMAIN json file"
+                $wldVCInfo = @{}
                 if ($($global:userOptions.buildOps -eq "WLD Domain")){
-                    $wldDomainPayload= $(get-content $scriptdir\automated_api_jsons\WLD_DOMAIN_API.json | ConvertFrom-JSON)
-                    $VCssoCredential = $ssoCredential
-                    $VCssoAdminPassword = $ssoAdminPassword
+                    if ($userOptions.vsanSA -match "OSA") {
+                        $wldDomainPayload= $(get-content $scriptdir\automated_api_jsons\WLD_DOMAIN_API.json | ConvertFrom-JSON)
+                    } else {
+                        $wldDomainPayload= $(get-content $scriptdir\automated_api_jsons\WLD_DOMAIN_API_ESA.json | ConvertFrom-JSON)
+                    }
+                    
+                    $wldVCInfo.Add("ssoUser",$ssoCredential)
+                    $wldVCInfo.Add("ssoPass",$ssoAdminPassword)
+                    $wldVCInfo.Add("vc",$($wldDomainPayload.vcenterSpec | Select-Object -Expandproperty networkDetailsSpec | Select-Object -Expandproperty dnsName))
                 } elseif ($($global:userOptions.buildOps -eq "ISOWLD Domain")) {
-                    $wldDomainPayload= $(get-content $scriptdir\automated_api_jsons\ISOWLD_DOMAIN_API.json | ConvertFrom-JSON)
-                    $VCssoCredential = "administrator@$($wldDomainPayload.ssoDomainSpec.ssoDomainName)"
-                    $VCssoAdminPassword = $($wldDomainPayload.ssoDomainSpec.ssoDomainPassword)
+                    if ($userOptions.vsanSA -match "OSA") {
+                        $wldDomainPayload= $(get-content $scriptdir\automated_api_jsons\ISOWLD_DOMAIN_API.json | ConvertFrom-JSON)
+                    } else {
+                        $wldDomainPayload= $(get-content $scriptdir\automated_api_jsons\ISOWLD_DOMAIN_API_ESA.json | ConvertFrom-JSON)
+                    }
+                    $wldVCInfo.Add("ssoUser","administrator@$($wldDomainPayload.ssoDomainSpec.ssoDomainName)")
+                    $wldVCInfo.Add("ssoPass",$($wldDomainPayload.ssoDomainSpec.ssoDomainPassword))
+                    $wldVCInfo.Add("vc",$($wldDomainPayload.vcenterSpec | Select-Object -Expandproperty networkDetailsSpec | Select-Object -Expandproperty dnsName))
                 }
                 logger "Set Image ID"
                 $wldDomainPayload.computeSpec | Select-Object -ExpandProperty clusterSpecs | ForEach-Object {$_.clusterImageId = $vlcImageID} 
@@ -4532,10 +4523,10 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                 Logger "Unable to obtain Task ID for this operation, please check the domainmanager log for more info."
                 break
                 } else {
-                    sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId ($wldDomainCreateTask.id)
+                    sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId ($wldDomainCreateTask.id) -wldVCInfo $wldVCInfo
+                    
                 }
-                logger "Checking vCLS VM's to ensure they power up"
-                vclsFix -vcServer $($wldDomainPayload.vcenterSpec | Select-Object -Expandproperty networkDetailsSpec | Select-Object -Expandproperty dnsName) -vcUser $VCssoCredential -vcPass $VCssoAdminPassword -hostUser "root" -hostPass $($userOptions.masterPassword)           
+
             }
         }
 

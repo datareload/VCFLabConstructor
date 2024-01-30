@@ -1,0 +1,25 @@
+{
+    "hostsSpec": [
+        {
+            "hostfqdn": "esxi-10.vcf.sddc.lab",
+            "username": "root",
+            "password": "VMware123!",
+            "storageType": "VSAN_ESA",
+            "networkPoolName": "mgmt-networkpool"
+        },        
+		{
+            "hostfqdn": "esxi-11.vcf.sddc.lab",
+            "username": "root",
+            "password": "VMware123!",
+            "storageType": "VSAN_ESA",
+            "networkPoolName": "mgmt-networkpool"
+        },       
+		{
+            "hostfqdn": "esxi-12.vcf.sddc.lab",
+            "username": "root",
+            "password": "VMware123!",
+            "storageType": "VSAN_ESA",
+            "networkPoolName": "mgmt-networkpool"
+        }
+    ]
+}

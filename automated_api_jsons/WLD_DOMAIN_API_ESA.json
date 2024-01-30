@@ -1,9 +1,5 @@
 {
-  "domainName": "ISO-WLD-01",
-  "ssoDomainSpec": {
-    "ssoDomainName": "vlc.lab",
-    "ssoDomainPassword": "VMware123!"
-  },
+  "domainName": "WLD-01",
   "vcenterSpec": {
     "name": "vcenter-wld",
     "networkDetailsSpec": {
@@ -98,11 +94,12 @@
         ],
         "datastoreSpec": {
           "vsanDatastoreSpec": {
-                "licenseKey": "",
-		"failuresToTolerate": 1,
-                "esaConfig": {
-                               "enabled": false
-                },
+             "licenseKey": "",
+            "esaConfig": {
+                           "enabled": true
+            },
+            "datastoreName": "wld-vsan01"
+          }
         },
         "networkSpec": {
           "vdsSpecs": [
@@ -124,15 +121,15 @@
                   "transportType": "VMOTION"
                 }
               ]
-                },
-                {
+	    },
+	    {
               "name": "wld01-c01-vsan-vds02",
               "portGroupSpecs": [		
                 {
                   "name": "wld01-c01-vds02-pg-vsan",
                   "transportType": "VSAN"
                 }
-              ]
+	      ]
 	    }
            ],
            "nsxClusterSpec": {

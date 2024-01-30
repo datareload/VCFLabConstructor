@@ -2,16 +2,6 @@
     "computeSpec": {
         "clusterSpecs": [
             {
-                "datastoreSpec": {
-                    "vsanDatastoreSpec": {
-                        "licenseKey": "",
-			"failuresToTolerate": 1,
-                        "esaConfig": {
-                                         "enabled": false
-                        },
-                        "datastoreName": "vcf-vsan02"
-                    }
-                },
                 "name": "mgmt-cluster-02",
                 "clusterImageId": "",
                 "hostSpecs": [
@@ -22,19 +12,19 @@
                             "vmNics": [
                                 {
                                     "id": "vmnic0",
-                                    "vdsName": "mgmt-cl02-vds01"
+                                    "vdsName": "mgmt-cl02-vds02"
                                 },
                                 {
                                     "id": "vmnic1",
-                                    "vdsName": "mgmt-cl02-vds01"
+                                    "vdsName": "mgmt-cl02-vds02"
                                 },
                                 {
                                     "id": "vmnic2",
-                                    "vdsName": "mgmt-cl02-vds02"
+                                    "vdsName": "mgmt-cl02-vsan-vds02"
                                 },
                                 {
                                     "id": "vmnic3",
-                                    "vdsName": "mgmt-cl02-vds02"
+                                    "vdsName": "mgmt-cl02-vsan-vds02"
                                 }
                             ]
                         }
@@ -46,19 +36,19 @@
                             "vmNics": [
                                 {
                                     "id": "vmnic0",
-                                    "vdsName": "mgmt-cl02-vds01"
+                                    "vdsName": "mgmt-cl02-vds02"
                                 },
                                 {
                                     "id": "vmnic1",
-                                    "vdsName": "mgmt-cl02-vds01"
+                                    "vdsName": "mgmt-cl02-vds02"
                                 },
                                 {
                                     "id": "vmnic2",
-                                    "vdsName": "mgmt-cl02-vds02"
+                                    "vdsName": "mgmt-cl02-vsan-vds02"
                                 },
                                 {
                                     "id": "vmnic3",
-                                    "vdsName": "mgmt-cl02-vds02"
+                                    "vdsName": "mgmt-cl02-vsan-vds02"
                                 }
                             ]
                         }
@@ -70,50 +60,59 @@
                             "vmNics": [
                                 {
                                     "id": "vmnic0",
-                                    "vdsName": "mgmt-cl02-vds01"
+                                    "vdsName": "mgmt-cl02-vds02"
                                 },
                                 {
                                     "id": "vmnic1",
-                                    "vdsName": "mgmt-cl02-vds01"
+                                    "vdsName": "mgmt-cl02-vds02"
                                 },
                                 {
                                     "id": "vmnic2",
-                                    "vdsName": "mgmt-cl02-vds02"
+                                    "vdsName": "mgmt-cl02-vsan-vds02"
                                 },
                                 {
                                     "id": "vmnic3",
-                                    "vdsName": "mgmt-cl02-vds02"
+                                    "vdsName": "mgmt-cl02-vsan-vds02"
                                 }
                             ]
                         }
                     }
                 ],
+                "datastoreSpec": {
+                    "vsanDatastoreSpec": {
+                        "licenseKey": "",
+                        "esaConfig": {
+                                         "enabled": true
+                        },
+                        "datastoreName": "vcf-vsan02"
+                    }
+                },
                 "networkSpec": {
                     "vdsSpecs": [
                         {
-                            "name": "mgmt-cl02-vds01",
+                            "name": "mgmt-cl02-vds02",
           		    "nsxtSwitchConfig" : {
             			"transportZones" : [ {
-              			"name" : "mgmt-cl02-overlay01",
+              			"name" : "sddc-vds02-overlay01",
               			"transportType" : "OVERLAY"
             			} ]
 			    },
                             "portGroupSpecs": [
                                 {
-                                    "name": "mgmt-cl02-mgmt",
+                                    "name": "sddc-vds02-mgmt",
                                     "transportType": "MANAGEMENT"
                                 },
                                 {
-                                    "name": "mgmt-cl02-vmotion",
+                                    "name": "sddc-vds02-vmotion",
                                     "transportType": "VMOTION"
                                 }
                             ]
                         },
                         {
-                            "name": "mgmt-cl02-vds02",
+                            "name": "mgmt-cl02-vsan-vds02",
                             "portGroupSpecs": [
                                 {
-                                    "name": "mgmt-cl02-vsan",
+                                    "name": "sddc-vds02-vsan",
                                     "transportType": "VSAN"
                                 }
                             ]
@@ -127,6 +126,6 @@
                 }
             }
         ]
-    }
+    },
     "domainId": ""
 }

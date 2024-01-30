@@ -98,11 +98,12 @@
         ],
         "datastoreSpec": {
           "vsanDatastoreSpec": {
-                "licenseKey": "",
-		"failuresToTolerate": 1,
-                "esaConfig": {
-                               "enabled": false
-                },
+            "licenseKey": "",
+            "esaConfig": {
+                              "enabled": true
+            },
+            "datastoreName": "wld-vsan01"
+          }
         },
         "networkSpec": {
           "vdsSpecs": [

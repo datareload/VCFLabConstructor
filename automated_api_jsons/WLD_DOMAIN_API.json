@@ -94,8 +94,11 @@
         ],
         "datastoreSpec": {
           "vsanDatastoreSpec": {
-            "failuresToTolerate": 1,
-            "licenseKey": "",
+             "licenseKey": "",
+	     "failuresToTolerate": 1,
+             "esaConfig": {
+                           "enabled": false
+             },
             "datastoreName": "wld-vsan01"
           }
         },
