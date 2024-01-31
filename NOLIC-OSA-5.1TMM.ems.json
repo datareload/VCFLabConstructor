@@ -103,9 +103,8 @@
       "vsanDedup": "false",
       "licenseFile": "<INSERT VSAN LIC>",
       "esaConfig": {
-        "enabled": true
+        "enabled": false
       },
-      "hclFile": "/home/admin/custom_vsan_esa_hcl.json",
       "datastoreName": "vcf-vsan"
   },
   "dvsSpecs": [
