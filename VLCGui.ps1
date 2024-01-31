@@ -2241,6 +2241,7 @@ function createHostCode ($vmToGen, $userOptions, $logpath, $dateFormat){
     $config.DeviceChange[3].Device.UnitNumber = 0
     $config.DeviceChange[3].Device.CapacityInKB = $([INT]$GBguestdisks[0]*1MB)
     $config.DeviceChange[3].Operation = 'add'
+    <#
     if($vsanSA -match "OSA"){
         $config.DeviceChange[4] = New-Object VMware.Vim.VirtualDeviceConfigSpec
         $config.DeviceChange[4].FileOperation = 'create'
@@ -2254,11 +2255,10 @@ function createHostCode ($vmToGen, $userOptions, $logpath, $dateFormat){
         $config.DeviceChange[4].Device.CapacityInKB = $([INT]$GBguestdisks[1]*1MB)
         $config.DeviceChange[4].Operation = 'add'
         $numDevice = 5
-    } else {
-        $numDevice = 4
-    }
+    } else {#>
+    $numDevice = 4
     $numUnit = 0
-    $remainingDisks = $($GBguestdisks | Select-Object -Skip 2)
+    $remainingDisks = $($GBguestdisks | Select-Object -Skip 1)
     foreach ($nvmeDisk in $remainingDisks) {
         $config.DeviceChange[$numDevice] = New-Object VMware.Vim.VirtualDeviceConfigSpec
         $config.DeviceChange[$numDevice].FileOperation = 'create'
@@ -3845,7 +3845,7 @@ $kscfg+="esxcli system settings advanced set -o /LSOM/VSANDeviceMonitoring -i 0`
 $kscfg+="esxcli system settings advanced set -o /LSOM/lsomSlowDeviceUnmount -i 0`n"
 $kscfg+="esxcli system settings advanced set -o /VSAN/SwapThickProvisionDisabled -i 1`n"
 $kscfg+="esxcli system settings advanced set -o /VSAN/FakeSCSIReservations -i 1`n"
-$kscfg+="esxcli storage nmp satp rule add --satp=VMW_SATP_LOCAL --device mpx.vmhba0:C0:T1:L0 --option `"enable_ssd`"`n"
+<#$kscfg+="esxcli storage nmp satp rule add --satp=VMW_SATP_LOCAL --device mpx.vmhba0:C0:T1:L0 --option `"enable_ssd`"`n"
 
 for ($i=2; $i -le ($GBguestdisks.Count-1); $i++) {
 
@@ -3853,6 +3853,7 @@ for ($i=2; $i -le ($GBguestdisks.Count-1); $i++) {
     $kscfg+="esxcli vsan storage tag add -d=mpx.vmhba0:C0:T${i}:L0 -t=capacityFlash`n"
 
 }
+#>
 $kscfg+="esxcli vsan storage automode set --enabled=false`n"
 $kscfg+="vdq -q >> /var/log/vlccheck.txt`n"
 $kscfg+="vim-cmd hostsvc/datastore/destroy datastore1`n"
