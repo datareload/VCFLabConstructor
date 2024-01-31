@@ -446,7 +446,7 @@ Function ValidateFormValues
 
         if ($validEntries)
             {
-                $viConnection = connectVI -vmHost $txtHostIP.Text -vmUser $txtUsername.Text -vmPassword $txtPassword.Text               
+                $viConnection = connectVI -vmHost $txtHostIP.Text -vmUser $txtUsername.Text -vmPassword $txtPassword.Text
                 logger "Validating Free Space on Datastore 800GB or more for deployment, 300GB or more for Expansion."
                 $vmDSToTest = $listDatastore.SelectedItem
                 $vmDSFree = $(Get-DataStore $vmDSToTest | Select-Object FreeSpaceGB).FreeSpaceGB
@@ -3586,7 +3586,7 @@ If (!$chkHostOnly.Checked) {
         #Get the MoRef of the Cluster in case it has spaces or illegal characters
         $targetCluster = Get-Cluster | Where-Object {$_.Name -eq $clusterOVF}
         $clusterMoref = $targetCluster.ExtensionData.MoRef.Value
-        $ovfArgs.Add("`"vi://'${usernameOVF}':'${passwordOVF}'@${esxhostOVF}:443?moref=vim.ClusterComputeResource:${clusterMoref}`"")
+        $ovfArgs.Add("`"vi://${usernameOVF}:${passwordOVF}@${esxhostOVF}:443?moref=vim.ClusterComputeResource:${clusterMoref}`"")
     }
     $getKey = "R"
     Do {
