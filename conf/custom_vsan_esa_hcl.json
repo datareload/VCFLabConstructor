@@ -1,7 +1,7 @@
 {
-    "timestamp": 1704825243,
-    "jsonUpdatedTime": "January 9, 2024, 4:22 AM PST",
-    "totalCount": 4,
+    "timestamp": 1706613240,
+    "jsonUpdatedTime": "January 30, 2024, 3:14 AM PST",
+    "totalCount": 6,
     "supportedReleases": [
         "ESXi 8.0 U2"
     ],
@@ -9,7 +9,7 @@
     "data": {
         "controller": [
             {
-                "id": 21454,
+                "id": 33418,
                 "releases": {
                     "ESXi 8.0 U2": {
                         "pvscsi": {
@@ -36,13 +36,40 @@
                 }
             },
             {
-                "id": 37960,
+                "id": 26238,
                 "releases": {
                     "ESXi 8.0 U2": {
                         "nvme_pcie": {
                             "1.2.4.11-1vmw.802.0.0.22380479": {
                                 "type": "inbox",
-                                "queueDepth": 255,
+                                "queueDepth": 128,
+                                "firmwares": [
+                                    {
+                                        "firmware": "1.3",
+                                        "vsanSupport": [
+                                            "Hybrid:Pass-Through",
+                                            "All Flash:Pass-Through",
+                                            "vSAN ESA"
+                                        ]
+                                    }
+                                ]
+                            }
+                        },
+                        "vsanSupport": [
+                            "Hybrid:Pass-Through",
+                            "All Flash:Pass-Through"
+                        ]
+                    }
+                }
+            },
+            {
+                "id": 36282,
+                "releases": {
+                    "ESXi 8.0 U2": {
+                        "nvme_pcie": {
+                            "1.2.4.11-1vmw.802.0.0.22380479": {
+                                "type": "inbox",
+                                "queueDepth": 128,
                                 "firmwares": [
                                     {
                                         "firmware": "1.3",
@@ -65,19 +92,19 @@
         ],
         "ssd": [
             {
-                "id": 33111,
+                "id": 46815,
                 "did": "7c0",
                 "vid": "15ad",
                 "ssid": "7c0",
                 "svid": "15ad",
                 "vendor": "VMware  ",
                 "model": "Virtual disk",
-                "devicetype": null,
+                "devicetype": "SCSI",
                 "partnername": "VMware  ",
                 "productid": "Virtual disk",
                 "partnumber": "unavailable",
                 "capacity": 32768,
-                "vcglink": "https://datareload.com/vlc",
+                "vcglink": "https://williamlam.com/homelab",
                 "releases": {
                     "ESXi 8.0 U2": {
                         "vsanSupport": [
@@ -118,19 +145,72 @@
                 }
             },
             {
-                "id": 38089,
+                "id": 14952,
                 "did": "7f0",
                 "vid": "15ad",
                 "ssid": "7f0",
                 "svid": "15ad",
                 "vendor": "NVMe",
                 "model": "VMware Virtual NVMe Disk",
-                "devicetype": null,
+                "devicetype": "NVMe",
                 "partnername": "NVMe",
                 "productid": "VMware Virtual NVMe Disk",
-                "partnumber": "7c9c6533f6f1df86000c29667d0b54e3",
+                "partnumber": "f8af05388bf15d9b000c2963bfaffc2e",
+                "capacity": 61440,
+                "vcglink": "https://williamlam.com/homelab",
+                "releases": {
+                    "ESXi 8.0 U2": {
+                        "vsanSupport": [
+                            "All Flash:",
+                            "vSANESA-SingleTier"
+                        ],
+                        "nvme_pcie": {
+                            "1.2.4.11-1vmw.802.0.0.22380479": {
+                                "firmwares": [
+                                    {
+                                        "firmware": "1.3",
+                                        "vsanSupport": {
+                                            "tier": [
+                                                "AF-Cache",
+                                                "vSANESA-Singletier"
+                                            ],
+                                            "mode": [
+                                                "vSAN",
+                                                "vSAN ESA"
+                                            ]
+                                        }
+                                    }
+                                ],
+                                "type": "inbox"
+                            }
+                        }
+                    }
+                },
+                "vsanSupport": {
+                    "mode": [
+                        "vSAN",
+                        "vSAN ESA"
+                    ],
+                    "tier": [
+                        "vSANESA-Singletier",
+                        "AF-Cache"
+                    ]
+                }
+            },
+            {
+                "id": 46298,
+                "did": "7f0",
+                "vid": "15ad",
+                "ssid": "7f0",
+                "svid": "15ad",
+                "vendor": "NVMe",
+                "model": "VMware Virtual NVMe Disk",
+                "devicetype": "NVMe",
+                "partnername": "NVMe",
+                "productid": "VMware Virtual NVMe Disk",
+                "partnumber": "058f94d7171d03aa000c2969913672c4",
                 "capacity": 614400,
-                "vcglink": "https://datareload.com/vlc",
+                "vcglink": "https://williamlam.com/homelab",
                 "releases": {
                     "ESXi 8.0 U2": {
                         "vsanSupport": [
