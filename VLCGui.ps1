@@ -1245,6 +1245,7 @@ Function cbConfigurator
     $replaceDNS +="echo upstream_servers[\`"$revRegionDNS\`"] = \`"127.0.0.1\`"`n"
     $replaceDNS +="echo upstream_servers[\`"$revxRegionDNS\`"] = \`"127.0.0.1\`"`n"
     $replaceDNS +="echo upstream_servers[\`"vcf.holo.lab.\`"] = \`"10.0.0.201\`"`n"
+    $replaceDNS +="echo upstream_servers[\`"vvs.esp.vmware.com.\`"] = \`"127.0.0.1\`"`n"
     $replaceDNS +="echo upstream_servers[\`"$vcfDomainName.\`"] = \`"127.0.0.1\`"`n"
 #Additional Site Config if present
     if ($global:userOptions.altSiteDNSServerIP -and $global:userOptions.altSitemgmtNetSubnet -and $global:userOptions.altSitevcfDomainName) {
