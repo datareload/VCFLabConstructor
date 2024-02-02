@@ -94,7 +94,7 @@
         ],
         "datastoreSpec": {
           "vsanDatastoreSpec": {
-             "licenseKey": "",
+            "licenseKey": "",
             "esaConfig": {
                            "enabled": true
             },
@@ -106,10 +106,10 @@
             {
               "name": "wld01-c01-vds01",
               "nsxtSwitchConfig" : {
-              	  "transportZones" : [ {
-              	  	"name" : "wld01-c01-vds01-pg-overlay01",
-              	  	"transportType" : "OVERLAY"
-                  } ]
+                "transportZones" : [ {
+                "name" : "wld01-c01-vds01-pg-overlay01",
+                "transportType" : "OVERLAY"
+                 } ]
 	       },
               "portGroupSpecs": [
                 {

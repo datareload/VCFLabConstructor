@@ -5,7 +5,7 @@
                 "datastoreSpec": {
                     "vsanDatastoreSpec": {
                         "licenseKey": "",
-			"failuresToTolerate": 1,
+                        "failuresToTolerate": 1,
                         "esaConfig": {
                                          "enabled": false
                         },
@@ -92,12 +92,12 @@
                     "vdsSpecs": [
                         {
                             "name": "mgmt-cl02-vds01",
-          		    "nsxtSwitchConfig" : {
-            			"transportZones" : [ {
-              			"name" : "mgmt-cl02-overlay01",
-              			"transportType" : "OVERLAY"
-            			} ]
-			    },
+                            "nsxtSwitchConfig" : {
+                                "transportZones" : [ {
+                                    "name" : "mgmt-cl02-overlay01",
+                                    "transportType" : "OVERLAY"
+                                }]
+                            },
                             "portGroupSpecs": [
                                 {
                                     "name": "mgmt-cl02-mgmt",
@@ -127,6 +127,6 @@
                 }
             }
         ]
-    }
+    },
     "domainId": ""
 }

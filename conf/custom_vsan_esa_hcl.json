@@ -61,33 +61,6 @@
                         ]
                     }
                 }
-            },
-            {
-                "id": 36282,
-                "releases": {
-                    "ESXi 8.0 U2": {
-                        "nvme_pcie": {
-                            "1.2.4.11-1vmw.802.0.0.22380479": {
-                                "type": "inbox",
-                                "queueDepth": 128,
-                                "firmwares": [
-                                    {
-                                        "firmware": "1.3",
-                                        "vsanSupport": [
-                                            "Hybrid:Pass-Through",
-                                            "All Flash:Pass-Through",
-                                            "vSAN ESA"
-                                        ]
-                                    }
-                                ]
-                            }
-                        },
-                        "vsanSupport": [
-                            "Hybrid:Pass-Through",
-                            "All Flash:Pass-Through"
-                        ]
-                    }
-                }
             }
         ],
         "ssd": [
@@ -116,59 +89,6 @@
                                 "firmwares": [
                                     {
                                         "firmware": "2.0 ",
-                                        "vsanSupport": {
-                                            "tier": [
-                                                "AF-Cache",
-                                                "vSANESA-Singletier"
-                                            ],
-                                            "mode": [
-                                                "vSAN",
-                                                "vSAN ESA"
-                                            ]
-                                        }
-                                    }
-                                ],
-                                "type": "inbox"
-                            }
-                        }
-                    }
-                },
-                "vsanSupport": {
-                    "mode": [
-                        "vSAN",
-                        "vSAN ESA"
-                    ],
-                    "tier": [
-                        "vSANESA-Singletier",
-                        "AF-Cache"
-                    ]
-                }
-            },
-            {
-                "id": 14952,
-                "did": "7f0",
-                "vid": "15ad",
-                "ssid": "7f0",
-                "svid": "15ad",
-                "vendor": "NVMe",
-                "model": "VMware Virtual NVMe Disk",
-                "devicetype": "NVMe",
-                "partnername": "NVMe",
-                "productid": "VMware Virtual NVMe Disk",
-                "partnumber": "f8af05388bf15d9b000c2963bfaffc2e",
-                "capacity": 61440,
-                "vcglink": "https://williamlam.com/homelab",
-                "releases": {
-                    "ESXi 8.0 U2": {
-                        "vsanSupport": [
-                            "All Flash:",
-                            "vSANESA-SingleTier"
-                        ],
-                        "nvme_pcie": {
-                            "1.2.4.11-1vmw.802.0.0.22380479": {
-                                "firmwares": [
-                                    {
-                                        "firmware": "1.3",
                                         "vsanSupport": {
                                             "tier": [
                                                 "AF-Cache",

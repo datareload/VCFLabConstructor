@@ -2242,7 +2242,6 @@ function createHostCode ($vmToGen, $userOptions, $logpath, $dateFormat){
     $config.DeviceChange[3].Device.UnitNumber = 0
     $config.DeviceChange[3].Device.CapacityInKB = $([INT]$GBguestdisks[0]*1MB)
     $config.DeviceChange[3].Operation = 'add'
-    <#
     if($vsanSA -match "OSA"){
         $config.DeviceChange[4] = New-Object VMware.Vim.VirtualDeviceConfigSpec
         $config.DeviceChange[4].FileOperation = 'create'
@@ -2251,14 +2250,15 @@ function createHostCode ($vmToGen, $userOptions, $logpath, $dateFormat){
         $config.DeviceChange[4].Device.Backing.FileName = "[$ds]"
         $config.DeviceChange[4].Device.Backing.ThinProvisioned = $true
         $config.DeviceChange[4].Device.Backing.DiskMode = 'persistent'
-        $config.DeviceChange[4].Device.ControllerKey = -103
-        $config.DeviceChange[4].Device.UnitNumber = 1
-        $config.DeviceChange[4].Device.CapacityInKB = $([INT]$GBguestdisks[1]*1MB)
+        $config.DeviceChange[4].Device.ControllerKey = -106
+        $config.DeviceChange[4].Device.UnitNumber = 0
+        $config.DeviceChange[4].Device.CapacityInKB = $([INT]$GBguestdisks[1]*.1MB)
         $config.DeviceChange[4].Operation = 'add'
         $numDevice = 5
     } else {#>
-    $numDevice = 4
-    $numUnit = 0
+        $numDevice = 4
+    }
+    $numUnit = 1
     $remainingDisks = $($GBguestdisks | Select-Object -Skip 1)
     foreach ($nvmeDisk in $remainingDisks) {
         $config.DeviceChange[$numDevice] = New-Object VMware.Vim.VirtualDeviceConfigSpec
@@ -3995,7 +3995,12 @@ public static class Dummy {
             "Not ready yet" }
         } until ($i -eq 20 -or $success)
 
-    $inputJson = Get-Content -Raw $userOptions.vcfEMSFile
+    $inputJsonObj = Get-Content -Raw $userOptions.vcfEMSFile | ConvertFrom-JSON
+    if ($userOptions.vsanSA -eq "OSA") {
+        $inputJsonObj.vsanSpec.esaConfig.enabled = $false
+    }
+    $inputJson = $inputJsonObj | ConvertTo-Json -Depth 10
+    $inputJson | Out-File $scriptDir\Logs\DeployParms-$(get-date -Format $global:dateFormat).JSON
 
     logger "Compiling and writing REST API calls"
 

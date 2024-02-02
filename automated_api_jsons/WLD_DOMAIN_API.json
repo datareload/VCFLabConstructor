@@ -95,7 +95,7 @@
         "datastoreSpec": {
           "vsanDatastoreSpec": {
              "licenseKey": "",
-	     "failuresToTolerate": 1,
+             "failuresToTolerate": 1,
              "esaConfig": {
                            "enabled": false
              },
