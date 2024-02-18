@@ -735,8 +735,8 @@ Function Get-VIInfo($vmHost, $vmUser, $vmPassword)
                 $vSwitches = ""
                 $vSwitches = $(Get-VirtualPortGroup | Select-Object VirtualSwitch -Unique).VirtualSwitch
                 ForEach ($switch in $vSwitches){           
-                    if ($switch.Mtu -lt 8940) {  
-                        logger "$($switch.Name) MTU of $($switch.Mtu) is not valid for VLC, must be 8940 or higher."
+                    if ($switch.Mtu -lt 8000) {  
+                        logger "$($switch.Name) MTU of $($switch.Mtu) is not valid for VLC, must be 8000 or higher."
                         logger "Networks from this switch will not be available as deploy target until corrected"
                         $invalidNets = $vmNetworks | Where-Object VirtualSwitch -ilike $switch
                         ForEach ($netWk in $invalidNets){$vmNetworks.Remove($netWk)}
@@ -873,7 +873,25 @@ Process{
         } 
 } 
 end { return $status } 
-} 
+}
+function Get-NetworkIPv4 {
+    param(
+        [string]$ipAddress,
+        [int]$cidr
+    )
+    $parsedIpAddress = [System.Net.IPAddress]::Parse($ipAddress)
+    $shift = 64 - $cidr
+    
+    [System.Net.IPAddress]$subnet = 0
+
+    if ($cidr -ne 0) {
+        $subnet = [System.Net.IPAddress]::HostToNetworkOrder([int64]::MaxValue -shl $shift)
+    }
+
+    [System.Net.IPAddress]$network = $parsedIpAddress.Address -band $subnet.Address
+
+    return "$network/$cidr"
+}
 Function addDhcpdScope {
 
     Param ($scSubnet,$scSubnetMask,$scRouter,$scInt)
@@ -914,7 +932,8 @@ Function cbConfigurator
 
     $dnsIPFQDNs = compileDNSRecords
     [Net.IPAddress]$DhcpSubnetMask = (('1'*$DhcpSubnetCIDR+'0'*(32-$DhcpSubnetCIDR)-split'(.{8})')-ne''|ForEach-Object{[convert]::ToUInt32($_,2)})-join'.'
-    $DhcpIPSubnet = $($DhcpGateway.ToString().Split('.')[0..2] -join '.') + ".0"
+    #$DhcpIPSubnet = $($DhcpGateway.ToString().Split('.')[0..2] -join '.') + ".0"
+    $DhcpIPSubnet = $(Get-NetworkIPv4 -ipAddress $DhcpGateway -cidr $DhcpSubnetCIDR).Split('/')[0]
     $DhcpVLANId = $($bringupObject | Select-Object -ExpandProperty nsxtSpec | Select-Object -ExpandProperty transportVlanId)
     [Net.IPAddress]$CloudBuilderSubnetMask = (('1'*$CloudBuilderCIDR+'0'*(32-$CloudBuilderCIDR)-split'(.{8})')-ne''|ForEach-Object{[convert]::ToUInt32($_,2)})-join'.'
     [Net.IPAddress]$CloudBuilderIPSubnet =  ($([Net.IPAddress]$CloudBuilderIP).address -band ([Net.IPAddress]$CloudBuilderSubnetMask).address)
@@ -923,6 +942,12 @@ Function cbConfigurator
     $vsanNetCIDR = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VSAN" } | Select-Object -ExpandProperty subnet).split("/")[1]
 	$vsanNetGateway = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VSAN" } | Select-Object -ExpandProperty gateway)
     $vsanNetVLAN = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VSAN" } | Select-Object -ExpandProperty vlanId)
+    $vmMgmtCIDR = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VM_MANAGEMENT" } | Select-Object -ExpandProperty subnet).split("/")[1]
+	$vmMgmtGateway = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VM_MANAGEMENT" } | Select-Object -ExpandProperty gateway)
+    $vmMgmtVLAN = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VM_MANAGEMENT" } | Select-Object -ExpandProperty vlanId)
+    $vmMgmtSubnet = $(Get-NetworkIPv4 -ipAddress $vmMgmtGateway -cidr $vmMgmtCIDR).Split('/')[0]
+    $revvmMgmtArray = $($vmMgmtGateway).Split(".") | Select-Object -First 3
+    $revvmMgmtDNS = "$($revvmMgmtArray[($revvmMgmtArray.Count-1)..0] -join '.').in-addr.arpa."
     $vmotionNetCIDR = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VMOTION" } | Select-Object -ExpandProperty subnet).split("/")[1]
 	$vmotionNetGateway = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VMOTION" } | Select-Object -ExpandProperty gateway)
     $vmotionNetVLAN = $($bringupObject.networkSpecs| Where-Object { $_.networkType -match "VMOTION" } | Select-Object -ExpandProperty vlanId)
@@ -946,10 +971,7 @@ Function cbConfigurator
     $edgeNodeSpecs = $edgeClusterSpec | Select-Object -ExpandProperty edgeNodeSpecs
     $edgeUplinkVlans = $edgeNeighbors | Select-Object -ExpandProperty uplinkVlan -Unique
     $edgeUplinkIPs =  foreach ($edgeIP in $edgeNeighbors) {$($edgeIP.uplinkInterfaceIP).Split("/")[0]}
-#    $uplinkInfo = $($avnNetworkInfo | Where -Property networkType -match "UPLINK")
-#    $uplinkAddrs = $uplinkInfo | Select -ExpandProperty gateway | foreach {"$_/$($($uplinkInfo | Select -ExpandProperty subnet).Split('/')[1])"}
-#    $edgeCidrs = foreach ($edgeCidr in $edgeNeighbors) { $($edgeCidr.uplinkInterfaceIP | Select -Unique).Split("/")[1]}
-#    $edgeTEPInfo = $($avnNetworkInfo | Where -Property networkType -match "NSXT_EDGE_TEP")
+    $edgeUplinkNets = $($edgeNeighbors | Select-Object -Unique -ExpandProperty peerIP) | ForEach-Object {Get-NetworkIPv4 -ipAddress $($_).Split("/")[0] -cidr $($_).Split("/")[1]}
     $nsxSuperNet = $global:userOptions.nsxSuperNet
 
     $replaceNet =""
@@ -960,6 +982,7 @@ Function cbConfigurator
     $nicstoCreate =@{}
     #Populate Network Info
     $nicstoCreate.Add("hostTep",@{gwip=$("$DhcpGateway/$DhcpSubnetCIDR");vlan=$DhcpVLANId})
+    $nicstoCreate.Add("vmmgmt",@{gwip=$("$vmMgmtGateway/$vmMgmtCIDR");vlan=$vmMgmtVLAN})
     $nicstoCreate.Add("vsan",@{gwip=$("$vsanNetGateway/$vsanNetCIDR");vlan=$vsanNetVLAN})
     $nicstoCreate.Add("vmotion",@{gwip=$("$vmotionNetGateway/$vmotionNetCIDR");vlan=$vmotionNetVLAN})
     $nicstoCreate.Add("uplink1",@{gwip=$($edgeNeighbors[0].peerIP);vlan=$edgeUplinkVlans[0]})
@@ -1038,11 +1061,12 @@ Function cbConfigurator
             $replaceNet +="echo Address=$($nicEntry.Value.gwip)`n"
             $replaceNet +=")>/etc/systemd/network/eth0.$($nicEntry.Value.vlan).network`n"
             $eth0VLANAdd +="echo VLAN=eth0.$($nicEntry.Value.vlan)`n"
-            $ethMTUAdd +="echo ExecStart=/sbin/ifconfig eth0.$($nicEntry.Value.vlan) mtu 8940 up`n"
+            $ethMTUAdd +="echo ExecStart=/sbin/ifconfig eth0.$($nicEntry.Value.vlan) mtu $($global:userOptions.nestedMTU) up`n"
 
         } else {
-
-            $eth0AddressAdd +="echo Address=$($nicEntry.Value.gwip)`n"
+            if ($nicEntry.Value.gwip -notmatch $("$CloudBuilderIP/$CloudBuilderCIDR")) { 
+                $eth0AddressAdd +="echo Address=$($nicEntry.Value.gwip)`n"
+            }
         }
 
     }
@@ -1092,7 +1116,7 @@ Function cbConfigurator
 #    $replaceNet +="echo }`n"
 #    $replaceNet +="echo `n"
     $replaceNet +="echo subnet $DhcpIPSubnet netmask $DhcpSubnetMask {`n"
-    $replaceNet +="echo interface \`"eth0.$($mgmtVlanId)\`"\;`n"
+    $replaceNet +="echo interface \`"eth0.$($DhcpVLANId)\`"\;`n"
     $replaceNet +="echo   range $($DhcpIPSubnet.Split('.')[0..2] -join '.').$($DhcpIPRange.Split('-')[0]) $($DhcpIPSubnet.Split('.')[0..2] -join '.').$($DhcpIPRange.Split('-')[1])\;`n"
     $replaceNet +="echo   option domain-name-servers $CloudBuilderIP\;`n"
     $replaceNet +="echo   option routers $($DhcpGateway.ToString())\;`n"
@@ -1129,15 +1153,17 @@ Function cbConfigurator
     $replaceNet +="echo `n"
     $replaceNet +="echo [Service]`n"
     $replaceNet +="echo ExecStart=/sbin/ethtool -K eth0 gso off gro off tso off`n"
-    $replaceNet +="echo ExecStart=/sbin/ifconfig eth0 mtu 8940 up`n"
-    $replaceNet +="echo ExecStart=/sbin/ifconfig eth0.$($mgmtVlanId) mtu 8940 up`n"
+    $replaceNet +="echo ExecStart=/sbin/ifconfig eth0 mtu $($global:userOptions.nestedMTU) up`n"
+    $replaceNet +="echo ExecStart=/sbin/ifconfig eth0.$($mgmtVlanId) mtu $($global:userOptions.nestedMTU) up`n"
     $replaceNet +=$ethMTUAdd
     $replaceNet +="echo  ExecStart=/bin/sleep 15`n"
-    $replaceNet +="echo ExecStart=ip route add $($avnNets[0]) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
-    $replaceNet +="echo ExecStart=ip route add $($avnNets[1]) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
-    $replaceNet +="echo ExecStart=ip route add $($tzEgress) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
-    $replaceNet +="echo ExecStart=ip route add $($tzIngress) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
-    $replaceNet +="echo ExecStart=ip route add $($nsxSuperNet) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
+    if(!$global:userOptions.enableFRR){
+        $replaceNet +="echo ExecStart=ip route add $($avnNets[0]) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
+        $replaceNet +="echo ExecStart=ip route add $($avnNets[1]) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
+        $replaceNet +="echo ExecStart=ip route add $($tzEgress) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
+        $replaceNet +="echo ExecStart=ip route add $($tzIngress) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
+        $replaceNet +="echo ExecStart=ip route add $($nsxSuperNet) proto static scope global nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[0]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[0]) via $($edgeUplinkIPs[2]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[1]) weight 1 nexthop dev eth0.$($edgeUplinkVlans[1]) via $($edgeUplinkIPs[3]) weight 1`n"
+    }
     $replaceNet +="echo Type=oneshot`n"
     $replaceNet +="echo `n"
     $replaceNet +="echo [Install]`n"
@@ -1180,11 +1206,12 @@ Function cbConfigurator
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($tzIngress) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($nsxSuperNet) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $DhcpIPSubnet/$DhcpSubnetCIDR -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
+    $replaceNet +="iptables -t nat -A POSTROUTING -s $vmMgmtSubnet/$vmMgmtCIDR -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT`n"
     $replaceNet +="iptables-save > /etc/systemd/scripts/ip4save`n"
     $replaceNet +="sed -i '/# End/q' /etc/systemd/scripts/iptables`n"
     $replaceNet +="systemctl restart iptables`n"
-    $replaceNet +="systemctl start nfs-server`n"
+#    $replaceNet +="systemctl start nfs-server`n"
     $replaceNet +="ethtool -K eth0 gso off gro off tso off`n"
     $replaceNet +="END`n"
 
@@ -1244,8 +1271,12 @@ Function cbConfigurator
     $replaceDNS +="echo upstream_servers[\`"$reverseDNS\`"] = \`"127.0.0.1\`"`n"
     $replaceDNS +="echo upstream_servers[\`"$revRegionDNS\`"] = \`"127.0.0.1\`"`n"
     $replaceDNS +="echo upstream_servers[\`"$revxRegionDNS\`"] = \`"127.0.0.1\`"`n"
+    if ($revvmMgmtDNS -notmatch $reverseDNS) {
+        $replaceDNS +="echo upstream_servers[\`"$revvmMgmtDNS\`"] = \`"127.0.0.1\`"`n"
+    }
     $replaceDNS +="echo upstream_servers[\`"vcf.holo.lab.\`"] = \`"10.0.0.201\`"`n"
     $replaceDNS +="echo upstream_servers[\`"vvs.esp.vmware.com.\`"] = \`"127.0.0.1\`"`n"
+    $replaceDNS +="echo upstream_servers[\`"vsanhealth.vmware.com.\`"] = \`"127.0.0.1\`"`n"
     $replaceDNS +="echo upstream_servers[\`"$vcfDomainName.\`"] = \`"127.0.0.1\`"`n"
 #Additional Site Config if present
     if ($global:userOptions.altSiteDNSServerIP -and $global:userOptions.altSitemgmtNetSubnet -and $global:userOptions.altSitevcfDomainName) {
@@ -1294,43 +1325,77 @@ Function cbConfigurator
     $replaceDNS +="echo [Install]`n"
     $replaceDNS +="echo WantedBy=multi-user.target`n"
     $replaceDNS +=")> /etc/systemd/system/maradns.deadwood.service`n"
-#GOBGP config
-    $replaceDNS +="(`n"
-    $replaceDNS +="echo [Unit]`n"
-    $replaceDNS +="echo Description=GoBGPd BGP Daemon`n"
-    $replaceDNS +="echo After=network.target`n"
-    $replaceDNS +="echo Wants=network.target`n"
-    $replaceDNS +="echo [Service]`n"
-    $replaceDNS +="echo ExecStart=/bin/bash -c `\`"/usr/bin/gobgpd -f /usr/bin/gobgpd.conf`\`"`n"
-    $replaceDNS +="echo TimeoutStartSec=0`n"
-    $replaceDNS +="echo ExecStop=`n"
-    $replaceDNS +="echo Restart=always`n"
-    $replaceDNS +="echo RestartSec=30`n"
-    $replaceDNS +="echo [Install]`n"
-    $replaceDNS +="echo WantedBy=multi-user.target`n"
-    $replaceDNS +=") > /etc/systemd/system/gobgpd.service`n"
-    $replaceDNS +="(`n"
-    $replaceDNS +="echo [global.config]`n"
-    $replaceDNS +="echo   as = $($edgeNeighbors.asnPeer[0])`n"
-    $replaceDNS +="echo   router-id = `\`"$CloudBuilderIP`\`"`n"
-    foreach ($neighbor in $edgeNeighbors) {
-        $replaceDNS +="echo [[neighbors]]`n"
-        $replaceDNS +="echo   [neighbors.config]`n"
-        $replaceDNS +="echo     neighbor-address = `\`"$($($neighbor.uplinkInterfaceIP).Split("/")[0])`\`"`n"
-        $replaceDNS +="echo     peer-as = $($edgeClusterSpec.asn)`n"
-        $replaceDNS +="echo     auth-password = `\`"$($neighbor.bgpPeerPassword)`\`"`n"
+    $replaceDNS +="echo '127.0.0.1 vsanhealth.vmware.com' >> /etc/hosts`n"
+#Routing Config
+    if($global:userOptions.enableFRR) {
+        #FRR Config
+        $replaceDNS +="tar -xf /home/admin/vlc-extras.tar -C /home/admin/`n"
+        $replaceDNS +="(`n"
+        $replaceDNS +="echo [vlc-extras]`n"
+        $replaceDNS +="echo name=vlc-extras`n"
+        $replaceDNS +="echo baseurl=file:///home/admin/vlc-extras`n"
+        $replaceDNS +="echo gpgcheck=0`n"
+        $replaceDNS +="echo enabled=1`n"
+        $replaceDNS +=") > /etc/yum.repos.d/vlc-extras.repo`n"
+        $replaceDNS +="createrepo /home/admin/vlc-extras`n"
+        $replaceDNS +="tdnf install frr -y`n"
+        $replaceDNS +="sed -i 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons`n"
+        $replaceDNS +="(`n"
+        $replaceDNS +="echo router bgp $($edgeNeighbors.asnPeer[0])`n"
+        $replaceDNS +="echo  bgp router-id $CloudBuilderIP`n"
+        $replaceDNS +="echo  no bgp ebgp-requires-policy`n"
+        $replaceDNS +="echo  neighbor $($edgeClusterSpec.edgeClusterName) peer-group`n"
+        $replaceDNS +="echo  neighbor $($edgeClusterSpec.edgeClusterName) remote-as $($edgeClusterSpec.asn)`n"
+        $replaceDNS +="echo  neighbor $($edgeClusterSpec.edgeClusterName) password $($edgeNeighbors[0].bgpPeerPassword)`n"
+        foreach ($uplinkNet in $edgeUplinkNets){
+         $replaceDNS +="echo  bgp listen range $($uplinkNet) peer-group $($edgeClusterSpec.edgeClusterName)`n"
+        }
+        $replaceDNS +="echo  !`n"
+        $replaceDNS +="echo  address-family ipv4 unicast`n"
+        $replaceDNS +="echo   redistribute kernel`n"
+        $replaceDNS +="echo   neighbor $($edgeClusterSpec.edgeClusterName) default-originate`n"
+        $replaceDNS +="echo  exit-address-family`n"
+        $replaceDNS +=")>> /etc/frr/frr.conf`n"
+        $replaceDNS +="systemctl restart frr`n"
+        $replaceDNS +="chkconfig frr on`n"
+    } else {
+        #GOBGP config
+        $replaceDNS +="(`n"
+        $replaceDNS +="echo [Unit]`n"
+        $replaceDNS +="echo Description=GoBGPd BGP Daemon`n"
+        $replaceDNS +="echo After=network.target`n"
+        $replaceDNS +="echo Wants=network.target`n"
+        $replaceDNS +="echo [Service]`n"
+        $replaceDNS +="echo ExecStart=/bin/bash -c `\`"/usr/bin/gobgpd -f /usr/bin/gobgpd.conf`\`"`n"
+        $replaceDNS +="echo TimeoutStartSec=0`n"
+        $replaceDNS +="echo ExecStop=`n"
+        $replaceDNS +="echo Restart=always`n"
+        $replaceDNS +="echo RestartSec=30`n"
+        $replaceDNS +="echo [Install]`n"
+        $replaceDNS +="echo WantedBy=multi-user.target`n"
+        $replaceDNS +=") > /etc/systemd/system/gobgpd.service`n"
+        $replaceDNS +="(`n"
+        $replaceDNS +="echo [global.config]`n"
+        $replaceDNS +="echo   as = $($edgeNeighbors.asnPeer[0])`n"
+        $replaceDNS +="echo   router-id = `\`"$CloudBuilderIP`\`"`n"
+        foreach ($neighbor in $edgeNeighbors) {
+            $replaceDNS +="echo [[neighbors]]`n"
+            $replaceDNS +="echo   [neighbors.config]`n"
+            $replaceDNS +="echo     neighbor-address = `\`"$($($neighbor.uplinkInterfaceIP).Split("/")[0])`\`"`n"
+            $replaceDNS +="echo     peer-as = $($edgeClusterSpec.asn)`n"
+            $replaceDNS +="echo     auth-password = `\`"$($neighbor.bgpPeerPassword)`\`"`n"
+        }
+        $replaceDNS +="echo ) > /usr/bin/gobgpd.conf`n"
+        $replaceDNS +="echo `"@reboot root /bin/sleep 5 && gobgp global rib add $CloudBuilderIPSubnet/$CloudBuilderCIDR -a ipv4`" > /etc/cron.d/gobgpd-route`n"
+        $replaceDNS +="echo `"@reboot root /bin/sleep 5 && gobgp global rib add 0.0.0.0/0 -a ipv4`" >> /etc/cron.d/gobgpd-route`n"
+        $replaceDNS +="chkconfig gobgpd on`n"
     }
-    $replaceDNS +="echo ) > /usr/bin/gobgpd.conf`n"
+#
     $replaceDNS +="echo net.ipv4.ip_forward = 1 >> /etc/sysctl.conf`n"
     $replaceDNS +="echo `"@reboot root /bin/sleep 5 && /sbin/sysctl --system`" > /etc/cron.d/sysctl`n"
-    $replaceDNS +="echo `"@reboot root /bin/sleep 5 && gobgp global rib add $CloudBuilderIPSubnet/$CloudBuilderCIDR -a ipv4`" > /etc/cron.d/gobgpd-route`n"
-    $replaceDNS +="echo `"@reboot root /bin/sleep 5 && gobgp global rib add 0.0.0.0/0 -a ipv4`" >> /etc/cron.d/gobgpd-route`n"
     $replaceDNS +="echo nsxt.manager.wait.minutes=45 >> /etc/vmware/vcf/bringup/application.properties`n"
     $replaceDNS +="echo vsan.hcl.validity.time.stamp=31536000 >> /etc/vmware/vcf/bringup/application.properties`n"
-    #$replaceDNS +="echo cp /home/admin/custom_vsan_esa_hcl.json /opt/vmware/bringup/tmp/`n"
-    #$replaceDNS +="echo chmod 644 /opt/vmware/bringup/tmp/custom_vsan_esa_hcl.json`n"
-    #$replaceDNS +="echo chown vcf_bringup:vcf /opt/vmware/bringup/tmp/custom_vsan_esa_hcl.json`n"
-    $replaceDNS +="chkconfig gobgpd on`n"
+
     $replaceDNS +="chkconfig maradns on`n"
     $replaceDNS +="chkconfig maradns.deadwood on`n"
     $replaceDNS +="systemctl disable sendmail`n"
@@ -1352,13 +1417,13 @@ Function cbConfigurator
 
     bytewriter $cbConfig "CBConfig.bash"
 
-    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir\$tempDir\CBConfig.bash" -Destination "/home/admin/" -LocalToGuest -VM $CBName -HostUser $($userOptions.username) -HostPassword $($userOptions.password) -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
+    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir\$tempDir\CBConfig.bash" -Destination "/home/admin/" -LocalToGuest -VM $CBName -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
  
-    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir\etc\maradns-2.0.16-1.x86_64.rpm" -Destination "/home/admin/" -LocalToGuest -VM $CBName -HostUser $($userOptions.username) -HostPassword $($userOptions.password) -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
+    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir\etc\maradns-2.0.16-1.x86_64.rpm" -Destination "/home/admin/" -LocalToGuest -VM $CBName -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
 
-    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir\etc\gobgp-2.9.0-2.ph3.x86_64.rpm" -Destination "/home/admin/" -LocalToGuest -VM $CBName -HostUser $($userOptions.username) -HostPassword $($userOptions.password) -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
+    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir\etc\gobgp-2.9.0-2.ph3.x86_64.rpm" -Destination "/home/admin/" -LocalToGuest -VM $CBName -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
 
-    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir\conf\custom_vsan_esa_hcl.json" -Destination "/home/admin/" -LocalToGuest -VM $CBName -HostUser $($userOptions.username) -HostPassword $($userOptions.password) -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
+    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir\etc\vlc-extras.tar" -Destination "/home/admin/" -LocalToGuest -VM $CBName -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
 
     Invoke-VMScript -ScriptType Bash -Server $($userOptions.esxhost) -GuestUser root -GuestPassword $($userOptions.masterPassword) -VM $CBName -HostUser $($userOptions.username) -HostPassword $($userOptions.password) -ScriptText "rpm -i /home/admin/maradns-2.0.16-1.x86_64.rpm;rpm -i /home/admin/gobgp-2.9.0-2.ph3.x86_64.rpm;chmod 777 /home/admin/CBConfig.bash;/home/admin/CBConfig.bash"
 
@@ -1376,11 +1441,12 @@ Function cbConfigurator
     logger "CloudBuilder online!"
 
     #Restart DHCP server as it never seems to want to start the first time
-    If($($userOptions.mgmtNetGateway) -ne 0) {
+<#    If($($userOptions.mgmtNetGateway) -ne 0) {
         $cbDhcpSvc = "dhcpd4@eth0.$($userOptions.mgmtNetVlan)"
     } else {
         $cbDhcpSvc = "dhcpd4@eth0"
     }
+#>
     Invoke-VMScript -ScriptType Bash -Server $($userOptions.esxhost) -GuestUser root -GuestPassword $($userOptions.masterPassword) -VM $CBName -HostUser $($userOptions.username) -HostPassword $($userOptions.password) -ScriptText "systemctl restart $cbDhcpSvc"
 
 }
@@ -2337,6 +2403,171 @@ function createHostCode ($vmToGen, $userOptions, $logpath, $dateFormat){
 
 }
 #endregion Host Creation
+#Adapted from https://github.com/lamw/vmware-scripts/blob/master/powershell/create_custom_vsan_esa_hcl_json.ps1
+#Thanks @lamw!
+function Get-CustomVsanEsaHcl {
+    param (
+        [Parameter(Mandatory=$true)]
+        [ValidateNotNull()]
+        [VMware.VimAutomation.ViCore.Impl.V1.Inventory.InventoryItemImpl]
+        $Vmhost
+    )
+
+    $supportedESXiReleases = @("ESXi 8.0 U2")
+
+    logger "`nCollecting SSD information from ESXi host ${vmhost} ... "
+
+    $imageManager = Get-View ($Vmhost.ExtensionData.ConfigManager.ImageConfigManager)
+    $vibs = $imageManager.fetchSoftwarePackages()
+    
+    $storageDevices = $vmhost.ExtensionData.Config.StorageDevice.scsiTopology.Adapter
+    $storageAdapters = $vmhost.ExtensionData.Config.StorageDevice.hostBusAdapter
+    $devices = $vmhost.ExtensionData.Config.StorageDevice.scsiLun
+    $pciDevices = $vmhost.ExtensionData.Hardware.PciDevice
+    
+    $ctrResults = @()
+    $ssdResults = @()
+    $seen = @{}
+    foreach ($storageDevice in $storageDevices) {
+        $targets = $storageDevice.target
+        if($targets -ne $null) {
+            foreach ($target in $targets) {
+                foreach ($ScsiLun in $target.Lun.ScsiLun) {
+                    $device = $devices | where {$_.Key -eq $ScsiLun}
+                    $storageAdapter = $storageAdapters | where {$_.Key -eq $storageDevice.Adapter}
+                    $pciDevice = $pciDevices | where {$_.Id -eq $storageAdapter.Pci}
+    
+                    # Convert from Dec to Hex
+                    $vid = ('{0:x}' -f $pciDevice.VendorId).ToLower()
+                    $did = ('{0:x}' -f $pciDevice.DeviceId).ToLower()
+                    $svid = ('{0:x}' -f $pciDevice.SubVendorId).ToLower()
+                    $ssid = ('{0:x}' -f $pciDevice.SubDeviceId).ToLower()
+                    $combined = "${vid}:${did}:${svid}:${ssid}"
+    
+                    if($storageAdapter.Driver -eq "nvme_pcie" -or $storageAdapter.Driver -eq "pvscsi") {
+                        switch ($storageAdapter.Driver) {
+                            "nvme_pcie" {
+                                $controllerType = $storageAdapter.Driver
+                                $controllerDriver = ($vibs | where {$_.name -eq "nvme-pcie"}).Version
+                            }
+                            "pvscsi" {
+                                $controllerType = $storageAdapter.Driver
+                                $controllerDriver = ($vibs | where {$_.name -eq "pvscsi"}).Version
+                            }
+                        }
+    
+                        $ssdReleases=@{}
+                        foreach ($supportedESXiRelease in $supportedESXiReleases) {
+                            $tmpObj = [ordered] @{
+                                vsanSupport = @( "All Flash:","vSANESA-SingleTier")
+                                $controllerType = [ordered] @{
+                                    $controllerDriver = [ordered] @{
+                                        firmwares = @(
+                                            [ordered] @{
+                                                firmware = $device.Revision
+                                                vsanSupport = [ordered] @{
+                                                    tier = @("AF-Cache", "vSANESA-Singletier")
+                                                    mode = @("vSAN", "vSAN ESA")
+                                                }
+                                            }
+                                        )
+                                        type = "inbox"
+                                    }
+                                }
+                            }
+                            if(!$ssdReleases[$supportedESXiRelease]) {
+                                $ssdReleases.Add($supportedESXiRelease,$tmpObj)
+                            }
+                        }
+    
+                        if($device.DeviceType -eq "disk" -and !$seen[$combined]) {
+                            $ssdTmp = [ordered] @{
+                                id = [int]$(Get-Random -Minimum 1000 -Maximum 50000).toString()
+                                did = $did
+                                vid = $vid
+                                ssid = $ssid
+                                svid = $svid
+                                vendor = $device.Vendor
+                                model = ($device.Model).trim()
+                                devicetype = $device.ApplicationProtocol
+                                partnername = $device.Vendor
+                                productid = ($device.Model).trim()
+                                partnumber = $device.SerialNumber
+                                capacity = [Int]((($device.Capacity.BlockSize * $device.Capacity.Block) / 1048576))
+                                vcglink = "https://code.vmware.com"
+                                releases = $ssdReleases
+                                vsanSupport = [ordered] @{
+                                    mode = @("vSAN", "vSAN ESA")
+                                    tier = @("vSANESA-Singletier", "AF-Cache")
+                                }
+                            }
+    
+                            $controllerReleases=@{}
+                            foreach ($supportedESXiRelease in $supportedESXiReleases) {
+                                $tmpObj = [ordered] @{
+                                    $controllerType = [ordered] @{
+                                        $controllerDriver = [ordered] @{
+                                            type = "inbox"
+                                            queueDepth = $device.QueueDepth
+                                            firmwares = @(
+                                                [ordered] @{
+                                                    firmware = $device.Revision
+                                                    vsanSupport = @( "Hybrid:Pass-Through","All Flash:Pass-Through","vSAN ESA")
+                                                }
+                                            )
+                                        }
+                                    }
+                                    vsanSupport = @( "Hybrid:Pass-Through","All Flash:Pass-Through")
+                                }
+                                if(!$controllerReleases[$supportedESXiRelease]) {
+                                    $controllerReleases.Add($supportedESXiRelease,$tmpObj)
+                                }
+                            }
+    
+                            $controllerTmp = [ordered] @{
+                                id = [int]$(Get-Random -Minimum 1000 -Maximum 50000).toString()
+                                releases = $controllerReleases
+                            }
+    
+                            $ctrResults += $controllerTmp
+                            $ssdResults += $ssdTmp
+                            $seen[$combined] = "yes"
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    $hclObject = [ordered] @{
+        #timestamp = $vsanHclTime.timestamp
+        #jsonUpdatedTime = $vsanHclTime.jsonUpdatedTime
+        timestamp = [DateTimeOffset]::Now.ToUnixTimeSeconds()
+        jsonUpdatedTime = "$(Get-Date -Format 'MMMM dd, yyyy, hh:mm tt') PST"
+        totalCount = $($ssdResults.count + $ctrResults.count)
+        supportedReleases = $supportedESXiReleases
+        eula = @{}
+        data = [ordered] @{
+            controller = @($ctrResults)
+            ssd = @($ssdResults)
+            hdd = @()
+        }
+    }
+    
+    $supportedESXiReleases = @("ESXi 8.0 U2")
+
+    logger "Saving Custom vSAN ESA HCL to custom_vsan_esa_hcl.json"
+    $hclJson = $hclObject | ConvertTo-Json -Depth 12 #| Out-File -FilePath "$($global:scriptDir)\conf\custom_vsan_esa_hcl.json"
+    bytewriter -dataIn $hclJson -fileOut "custom_vsan_esa_hcl.json"
+    logger "Copying Custom vSAN ESA HCL Cloudbuilder"
+    connectVI -vmHost $($global:userOptions.esxhost) -vmUser $($global:userOptions.username) -vmPassword $($global:userOptions.password)
+    Copy-VMGuestFile -Server $($global:userOptions.esxhost) -Source "$scriptDir\$tempDir\custom_vsan_esa_hcl.json" -Destination "/home/admin/" -LocalToGuest -VM $(($global:userOptions.nestedVMPrefix)+($global:userOptions.cbName)) -GuestUser admin -GuestPassword $($global:userOptions.masterPassword) -Force
+    Disconnect-VIServer -Server $($global:userOptions.esxhost) -Confirm:$false -Force | Out-Null
+}
+
+# Usage:
+# Get-CustomVsanEsaHcl -Vmhost (Get-VMHost)
+
 
 #endregion Functions
 
@@ -3457,7 +3688,7 @@ $startupHostCode = {
 		exit
 	}
     write-host "Add CD/ISO $VM_name"
-    New-CDDrive -VM $VM_name -ISOPath ("[$ds] ISO\" + $vmPrefix + "VLC_vSphere.iso") -StartConnected:$true -Confirm:$false | Out-Null
+    New-CDDrive -VM $VM_name -ISOPath ("[$ds] ISO\" + $vmPrefix + "VLC_vSphere.iso") -StartConnected:$true -Confirm:$false -Verbose:$true
 
 	Start-VM -VM $VM_Name | Out-Null
 
@@ -3942,7 +4173,12 @@ logger "Nested Hosts Online Time: $($totalTime.Elapsed)"
 logger "Waiting 1 min for nested hosts to settle"
 Start-Sleep 60
 #endregion Custom ISO Generation
-
+#logger "Building Custom HCL JSON based on Management Host"
+$hclVMHost = $($global:bringUpOptions) | Select-Object -ExpandProperty hostSpecs | Select-Object -ExpandProperty ipAddressPrivate | Select-Object -ExpandProperty ipAddress -First 1
+connectVI -vmHost $hclVMHost -vmUser "root" -vmPass $global:userOptions.masterPassword -numTries 5
+$hclVMHostObj = Get-VMHost
+Get-CustomVsanEsaHcl -Vmhost $hclVMHostObj
+Disconnect-VIServer * -Force -Confirm:$false | Out-Null
 #endregion Imaging
 
 logger "Total Time for Imaging: $($totalTime.Elapsed)"
