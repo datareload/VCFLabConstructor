@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v5.1.1 1/25/2023
+# VLC - Lab Constructor beta v5.1.1 2/20/2023
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com;
 # wlam@vmware.com for some awesome scripting work on ESA HCL!
@@ -4453,6 +4453,8 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
 
     #Disable vSAN HCL warning from https://kb.vmware.com/s/article/2151813
     logger "Disabling vSAN HCL Controller warning"
+    $vsanCluster = Get-Cluster -Name $mgmtClusterName
+    $vsanCluster.ExtensionData.AbandonHciWorkflow()
     $vsanHealthCluster = (Get-Cluster -Name $mgmtClusterName).ExtensionData.MoRef
     $vsanHealthView = Get-VsanView -Id "VsanVcClusterHealthSystem-vsan-cluster-health-system"
     $vsanHealthView.VsanHealthSetVsanClusterSilentChecks($vsanHealthCluster,"controlleronhcl",$null)
