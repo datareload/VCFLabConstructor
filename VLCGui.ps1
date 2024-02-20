@@ -4455,7 +4455,8 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
     logger "Disabling vSAN HCL Controller warning"
     $vsanHealthCluster = (Get-Cluster -Name $mgmtClusterName).ExtensionData.MoRef
     $vsanHealthView = Get-VsanView -Id "VsanVcClusterHealthSystem-vsan-cluster-health-system"
-    $vsanHealthView.VsanHealthSetVsanClusterSilentChecks($vsanHealthCluster,"controlleronhcl",$null)   
+    $vsanHealthView.VsanHealthSetVsanClusterSilentChecks($vsanHealthCluster,"controlleronhcl",$null)
+    $vsanHealthView.VsanHealthSetVsanClusterSilentChecks($vsanHealthCluster,"nvmeonhcl",$null)    
     Disconnect-VIServer * -Force -Confirm:$false | Out-Null
     
     # Import Image into SDDC Manager (the task that runs during bringup doesn't seem to work)
