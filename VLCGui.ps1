@@ -2612,7 +2612,9 @@ if ($isCLI) {
 #endregion CLI Mode
 
 #region Begin Main Form
-
+    if ($global:userOptions.nestedMTU -eq $null) {
+        $global:userOptions.nestedMTU = "8940"
+    }
 #Setup help for form
     $tooltips = New-Object System.Windows.Forms.ToolTip
     $tooltips.IsBalloon = $true
