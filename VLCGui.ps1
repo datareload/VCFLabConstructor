@@ -4572,7 +4572,8 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
             $tzVcToken = vcAuthToken -vcServer $managementVCIP -vcCreds $vcCreds
             $tzEdgeClusterID = $(vcGetObject -vcServer $managementVCIP -vcToken $tzVcToken -entityType namespace-management/edge-cluster-compatibility -tzDVSwitch $tzDVSwitch -tzCluster $tzCluster) | Select-Object -ExpandProperty edge_cluster
             ### WLD MGMT does not like using the same IP for GW and worker DNS, using one of the Edge uplink GW's as worker DNS for temporary fix. 
-            $tzWorkerDNS = $($edgeClusterPayload.edgeNodeSpecs | Select-Object -ExpandProperty uplinkNetwork | Select-Object -ExpandProperty peerIP -First 1).Split("/")[0]
+            $tzWorkerDNS = $($global:userOptions.dnsServer)
+            #$tzWorkerDNS = $($edgeClusterPayload.edgeNodeSpecs | Select-Object -ExpandProperty uplinkNetwork | Select-Object -ExpandProperty peerIP -First 1).Split("/")[0]
             logger "Getting Edge Cluster ID: $tzEdgeClusterID"
             ### Load Tanzu API JSON for customization
             logger "Load Workload Management API JSON for customization"
