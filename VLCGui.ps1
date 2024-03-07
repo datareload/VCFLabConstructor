@@ -1200,6 +1200,7 @@ Function cbConfigurator
     $replaceNet +="iptables -t mangle -F`n"
     $replaceNet +="iptables -F`n"
     $replaceNet +="iptables -X`n"
+    $replaceNet +="iptables -t nat -A POSTROUTING -s $CloudBuilderIP/32 -o eth0.$($mgmtVlanId) -j ACCEPT`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($avnNets[0]) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($avnNets[1]) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($tzEgress) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
@@ -1338,7 +1339,7 @@ Function cbConfigurator
         $replaceDNS +="echo enabled=1`n"
         $replaceDNS +=") > /etc/yum.repos.d/vlc-extras.repo`n"
         $replaceDNS +="createrepo /home/admin/vlc-extras`n"
-        $replaceDNS +="tdnf install frr -y`n"
+        $replaceDNS +="tdnf install frr -y --disablerepo=`"*`" --enablerepo=`"vlc-extras`"`n"
         $replaceDNS +="sed -i 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons`n"
         $replaceDNS +="(`n"
         $replaceDNS +="echo router bgp $($edgeNeighbors.asnPeer[0])`n"
@@ -2603,6 +2604,9 @@ if ($isCLI) {
     $global:userOptions.internalSvcs = [System.Convert]::ToBoolean($global:userOptions.internalSvcs)
     $global:userOptions.deployEdgeCluster = [System.Convert]::ToBoolean($global:userOptions.deployEdgeCluster)
     $global:userOptions.bringupAfterBuild = [System.Convert]::ToBoolean($global:userOptions.bringupAfterBuild)
+    if ($global:userOptions.nestedMTU -eq $null) {
+        $global:userOptions.nestedMTU = "8940"
+    }
     
     if($($global:DefaultVIServers.Count) -gt 0) {
         Disconnect-VIServer * -Force -Confirm:$false | Out-Null
@@ -2612,9 +2616,7 @@ if ($isCLI) {
 #endregion CLI Mode
 
 #region Begin Main Form
-    if ($global:userOptions.nestedMTU -eq $null) {
-        $global:userOptions.nestedMTU = "8940"
-    }
+
 #Setup help for form
     $tooltips = New-Object System.Windows.Forms.ToolTip
     $tooltips.IsBalloon = $true
@@ -4545,13 +4547,13 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                 Invoke-RestMethod @checkclSubURL @global:skipSSLFlag
                 $thumbRequest = [System.Net.WebRequest]::Create("$clSubURL")
                 $sslthumb = $($thumbRequest.ServicePoint.Certificate.GetCertHashString()) -replace '(..(?!$))','$1:'
-                $tzContentLibrary = New-ContentLibrary -Name TanzuContent -SubscriptionUrl $clSubURL -Datastore $clDS -SslThumbprint $sslthumb -DownloadContentOnDemand
+                $tzContentLibrary = New-ContentLibrary -Name ContentLibrary -SubscriptionUrl $clSubURL -Datastore $clDS -SslThumbprint $sslthumb -DownloadContentOnDemand
                 logger "Subscribed content library setup successfully."
             } catch {
                 logger $Error[0]
                 logger "Problem connecting to $clSubURL, setting up local content library."
-                logger "You will need to manually download TKG photon images and put in this content library before you can deploy Tanzu."
-                $tzContentLibrary = New-ContentLibrary -Name TanzuContent -Datastore $clDS
+                logger "You will need to manually download TKG photon images and put in this content library before you can deploy Workload Management."
+                $tzContentLibrary = New-ContentLibrary -Name ContentLibrary -Datastore $clDS
             }
             
             ### collect required info for building namespace enable api
