@@ -1200,7 +1200,7 @@ Function cbConfigurator
     $replaceNet +="iptables -t mangle -F`n"
     $replaceNet +="iptables -F`n"
     $replaceNet +="iptables -X`n"
-    $replaceNet +="iptables -t nat -A POSTROUTING -s $CloudBuilderIP/32 -o eth0.$($mgmtVlanId) -j ACCEPT`n"
+    $replaceNet +="iptables -t nat -A POSTROUTING -s $($global:userOptions.holoConsoleIP)/32 -o eth0.$($mgmtVlanId) -j ACCEPT`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($avnNets[0]) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($avnNets[1]) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($tzEgress) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
@@ -2606,6 +2606,9 @@ if ($isCLI) {
     $global:userOptions.bringupAfterBuild = [System.Convert]::ToBoolean($global:userOptions.bringupAfterBuild)
     if ($global:userOptions.nestedMTU -eq $null) {
         $global:userOptions.nestedMTU = "8940"
+    }
+    if ($global:UserOptions.holoConsoleIP -eq $null) {
+        $global:UserOptions.holoConsoleIP = "10.0.0.201"
     }
     
     if($($global:DefaultVIServers.Count) -gt 0) {
