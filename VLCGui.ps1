@@ -2195,6 +2195,8 @@ function vclsFix ($vcServer, $vcUser, $vcPass, $hostUser, $hostPass){
         logger "Setting permissions for vCLS manipulation"
         $newPrivs = $(get-VIRole -name Admin).ExtensionData.Privilege | Where-Object {$_ -match "VirtualMachine.Config"}
         $newPrivs | ForEach-Object {Set-VIRole -Role vCLSadmin -AddPrivilege (Get-VIPrivilege -id $_)}
+        logger "Pausing 60 seconds to ensure first vCLS VM is created"
+        Start-Sleep 60
         logger "Finding vCLS VM"
         $vms = get-vm -name vCLS* | Where-Object {$_.PowerState -match "PoweredOff"}
         if ($vms -ne $null){
