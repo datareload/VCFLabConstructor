@@ -2601,6 +2601,7 @@ if ($isCLI) {
     $global:userOptions.mgmtNetCidr=$($global:userOptions.mgmtNetSubnet).Substring(($($global:userOptions.mgmtNetSubnet).IndexOf("/")+1),($($global:userOptions.mgmtNetSubnet).Length - ($($global:userOptions.mgmtNetSubnet).IndexOf("/") +1)))
     $global:userOptions.chkInternal = [System.Convert]::ToBoolean($global:userOptions.chkInternal)
     $global:userOptions.useCBIso = [System.Convert]::ToBoolean($global:userOptions.useCBIso)
+    $global:userOptions.enableFRR = [System.Convert]::ToBoolean($global:userOptions.enableFRR)
     $global:userOptions.deployWldMgmt = [System.Convert]::ToBoolean($global:userOptions.deployWldMgmt)
     $global:userOptions.deployAVNs = [System.Convert]::ToBoolean($global:userOptions.deployAVNs)
     $global:userOptions.internalSvcs = [System.Convert]::ToBoolean($global:userOptions.internalSvcs)
