@@ -3,7 +3,7 @@
     "edgeAdminPassword": "VMware123!VMware123!",
     "edgeAuditPassword": "VMware123!VMware123!",
     "edgeRootPassword": "VMware123!VMware123!",
-    "mtu": 8940,
+    "mtu": 8000,
     "tier0Name": "VLC-Tier-0",
     "tier0RoutingType": "EBGP",
     "tier0ServicesHighAvailability": "ACTIVE_ACTIVE",

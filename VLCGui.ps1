@@ -2608,7 +2608,7 @@ if ($isCLI) {
     $global:userOptions.deployEdgeCluster = [System.Convert]::ToBoolean($global:userOptions.deployEdgeCluster)
     $global:userOptions.bringupAfterBuild = [System.Convert]::ToBoolean($global:userOptions.bringupAfterBuild)
     if ($global:userOptions.nestedMTU -eq $null) {
-        $global:userOptions.nestedMTU = "8940"
+        $global:userOptions.nestedMTU = "8000"
     }
     if ($global:UserOptions.holoConsoleIP -eq $null) {
         $global:UserOptions.holoConsoleIP = "10.0.0.201"

@@ -44,7 +44,7 @@
       "subnet": "10.0.4.0/24",
       "gateway": "10.0.4.253",
       "vlanId": "10",
-      "mtu": "9000",
+      "mtu": "8000",
       "portGroupKey": "sddc-vds01-vmotion",
       "includeIpAddressRanges": [{"endIpAddress": "10.0.4.120", "startIpAddress": "10.0.4.101"}],
       "standbyUplinks":[],
@@ -58,7 +58,7 @@
       "subnet": "10.0.8.0/24",
       "gateway": "10.0.8.253",
       "vlanId": "10",
-      "mtu": "9000",
+      "mtu": "8000",
       "portGroupKey": "sddc-vds01-vsan",
       "includeIpAddressRanges": [{"endIpAddress": "10.0.8.120", "startIpAddress": "10.0.8.101"}],
       "standbyUplinks":[],
@@ -72,7 +72,7 @@
       "subnet": "10.0.0.0/24",
       "gateway": "10.0.0.221",
       "vlanId": "10",
-      "mtu": "9000",
+      "mtu": "8000",
       "portGroupKey": "sddc-vds01-vmmgmt",
       "standbyUplinks":[],
       "activeUplinks":[
@@ -112,7 +112,7 @@
         "vmnic0",
         "vmnic1"
       ],
-      "mtu": 9000,
+      "mtu": 8000,
       "networks":[
         "MANAGEMENT",
         "VMOTION",
@@ -174,7 +174,7 @@
         "vmnic2",
         "vmnic3"
       ],
-      "mtu": 9000,
+      "mtu": 8000,
       "networks":[
         "VSAN"
       ],
