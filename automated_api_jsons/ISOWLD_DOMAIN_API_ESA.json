@@ -1,4 +1,5 @@
-{
+{  
+  "deployWithoutLicenseKeys": true,
   "domainName": "ISO-WLD-01",
   "ssoDomainSpec": {
     "ssoDomainName": "vlc.lab",

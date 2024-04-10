@@ -1,4 +1,5 @@
 {
+  "deployWithoutLicenseKeys": true,
   "domainName": "WLD-01",
   "vcenterSpec": {
     "name": "vcenter-wld",

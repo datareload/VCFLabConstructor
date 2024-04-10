@@ -1,4 +1,5 @@
 {
+    "deployWithoutLicenseKeys": true,
     "computeSpec": {
         "clusterSpecs": [
             {

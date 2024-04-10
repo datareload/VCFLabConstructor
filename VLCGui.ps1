@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v5.1.1 2/20/2023
+# VLC - Lab Constructor beta v5.1.1 4/10/2024
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com;
 # wlam@vmware.com for some awesome scripting work on ESA HCL!
@@ -1200,7 +1200,12 @@ Function cbConfigurator
     $replaceNet +="iptables -t mangle -F`n"
     $replaceNet +="iptables -F`n"
     $replaceNet +="iptables -X`n"
-    $replaceNet +="iptables -t nat -A POSTROUTING -s $($global:userOptions.holoConsoleIP)/32 -o eth0.$($mgmtVlanId) -j ACCEPT`n"
+    if ($global:userOptions.altSiteDNSServerIP -and $global:userOptions.altSitemgmtNetSubnet -and $global:userOptions.altSitevcfDomainName) {
+        $replaceNet +="iptables -t nat -A POSTROUTING -s $($vmMgmtSubnet)/$($vmMgmtCIDR)  -d $($global:userOptions.altSitemgmtNetSubnet) -o eth0.$($mgmtVlanId) -j ACCEPT`n"
+    }
+    if ($global:userOptions.labSKUs -like "HCXSite1") {
+        $replaceNet +="iptables -t nat -A POSTROUTING -s $($global:userOptions.holoConsoleIP)/32 -o eth0.$($mgmtVlanId) -j ACCEPT`n"
+    }
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($avnNets[0]) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($avnNets[1]) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($tzEgress) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
@@ -1208,6 +1213,9 @@ Function cbConfigurator
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($nsxSuperNet) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $DhcpIPSubnet/$DhcpSubnetCIDR -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $vmMgmtSubnet/$vmMgmtCIDR -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
+    #foreach($hcxNet in $hcxNets) {
+    #    $replaceNet +="iptables -t nat -A POSTROUTING -s $($hcxNet) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
+    #}
     $replaceNet +="iptables -A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT`n"
     $replaceNet +="iptables-save > /etc/systemd/scripts/ip4save`n"
     $replaceNet +="sed -i '/# End/q' /etc/systemd/scripts/iptables`n"
@@ -2311,7 +2319,7 @@ function createHostCode ($vmToGen, $userOptions, $logpath, $dateFormat){
     $config.DeviceChange[3].Device.UnitNumber = 0
     $config.DeviceChange[3].Device.CapacityInKB = $([INT]$GBguestdisks[0]*1MB)
     $config.DeviceChange[3].Operation = 'add'
-    if($vsanSA -match "OSA"){
+    if($vsanSA -match "OSA" -or $global:Ways -match "expansion"){
         $config.DeviceChange[4] = New-Object VMware.Vim.VirtualDeviceConfigSpec
         $config.DeviceChange[4].FileOperation = 'create'
         $config.DeviceChange[4].Device = New-Object VMware.Vim.VirtualDisk
@@ -4183,12 +4191,15 @@ logger "Nested Hosts Online Time: $($totalTime.Elapsed)"
 logger "Waiting 1 min for nested hosts to settle"
 Start-Sleep 60
 #endregion Custom ISO Generation
-#logger "Building Custom HCL JSON based on Management Host"
-$hclVMHost = $($global:bringUpOptions) | Select-Object -ExpandProperty hostSpecs | Select-Object -ExpandProperty ipAddressPrivate | Select-Object -ExpandProperty ipAddress -First 1
-connectVI -vmHost $hclVMHost -vmUser "root" -vmPass $global:userOptions.masterPassword -numTries 5
-$hclVMHostObj = Get-VMHost
-Get-CustomVsanEsaHcl -Vmhost $hclVMHostObj
-Disconnect-VIServer * -Force -Confirm:$false | Out-Null
+if($global:Ways -notmatch "expansion"){
+    logger "Building Custom HCL JSON based on first created Host"
+
+    $hclVMHost = $($global:bringUpOptions) | Select-Object -ExpandProperty hostSpecs | Select-Object -ExpandProperty ipAddressPrivate | Select-Object -ExpandProperty ipAddress -First 1
+    connectVI -vmHost $hclVMHost -vmUser "root" -vmPass $global:userOptions.masterPassword -numTries 5
+    $hclVMHostObj = Get-VMHost
+    Get-CustomVsanEsaHcl -Vmhost $hclVMHostObj
+    Disconnect-VIServer * -Force -Confirm:$false | Out-Null
+}
 #endregion Imaging
 
 logger "Total Time for Imaging: $($totalTime.Elapsed)"
