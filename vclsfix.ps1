@@ -1,4 +1,5 @@
-﻿param ($vcServer, $vcUser, $vcPass)
+﻿#vclsfix - Part of VLC 5.1.1 package 4/11/2024
+param ($vcServer, $vcUser, $vcPass)
 
     $vm = ""
     $vCLSvm = ""
