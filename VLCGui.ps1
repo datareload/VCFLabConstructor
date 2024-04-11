@@ -2615,12 +2615,6 @@ if ($isCLI) {
     $global:userOptions.internalSvcs = [System.Convert]::ToBoolean($global:userOptions.internalSvcs)
     $global:userOptions.deployEdgeCluster = [System.Convert]::ToBoolean($global:userOptions.deployEdgeCluster)
     $global:userOptions.bringupAfterBuild = [System.Convert]::ToBoolean($global:userOptions.bringupAfterBuild)
-    if ($global:userOptions.nestedMTU -eq $null) {
-        $global:userOptions.nestedMTU = "8000"
-    }
-    if ($global:UserOptions.holoConsoleIP -eq $null) {
-        $global:UserOptions.holoConsoleIP = "10.0.0.201"
-    }
     
     if($($global:DefaultVIServers.Count) -gt 0) {
         Disconnect-VIServer * -Force -Confirm:$false | Out-Null
@@ -3676,7 +3670,13 @@ if ($isCLI) {
 
 #endregion Main Form
 }
-
+#Set default varialbes necessary for CLI and UI modes
+if ($global:userOptions.nestedMTU -eq $null) {
+    $global:userOptions.nestedMTU = "8000"
+}
+if ($global:UserOptions.holoConsoleIP -eq $null) {
+    $global:UserOptions.holoConsoleIP = "10.0.0.201"
+}
 #region Host Startup Scriptblock
 #Host Startup Scriptblock
 $startupHostCode = {
