@@ -1622,7 +1622,7 @@ function setFormControls ($formway)
                         $txtBringUpFile.Enabled = $true
                         $lblBringUpFile.visible = $true
                         $txtBringUpFile.visible = $true
-                        $txtBringUpFile.Text = "$scriptDir\NOLIC-5.1TMM.ems.json"
+                        $txtBringUpFile.Text = "$scriptDir\NOLIC-5.1.1-EVAL.ems.json"
 
                         $lblMgmtNetVLAN.Enabled = $false
                         $txtMgmtNetVLAN.Enabled = $false
