@@ -480,7 +480,7 @@ Function ValidateFormValues
 Function connectVI ($vmHost, $vmUser, $vmPassword, $numTries)
 {
     $i=1
-    if($($global:DefaultVIServers.Count) -gt 0) {
+    if($($global:DefaultVIServer.Count) -gt 0) {
         Disconnect-VIServer * -Force -Confirm:$false | Out-Null
     }
         Do {
@@ -2202,7 +2202,7 @@ function vclsFix ($vcServer, $vcUser, $vcPass, $hostUser, $hostPass){
         connectVI -vmhost $vc -vmUser $vcUser -vmPassword $vcPass -numTries 10
         logger "Setting permissions for vCLS manipulation"
         $newPrivs = $(get-VIRole -name Admin).ExtensionData.Privilege | Where-Object {$_ -match "VirtualMachine.Config"}
-        $newPrivs | ForEach-Object {Set-VIRole -Role vCLSadmin -AddPrivilege (Get-VIPrivilege -id $_)}
+        $newPrivs | ForEach-Object {Set-VIRole -Role vCLSadmin -AddPrivilege (Get-VIPrivilege -id $_) | Out-Null}
         logger "Pausing 60 seconds to ensure first vCLS VM is created"
         Start-Sleep 60
         logger "Finding vCLS VM"
@@ -2616,7 +2616,7 @@ if ($isCLI) {
     $global:userOptions.deployEdgeCluster = [System.Convert]::ToBoolean($global:userOptions.deployEdgeCluster)
     $global:userOptions.bringupAfterBuild = [System.Convert]::ToBoolean($global:userOptions.bringupAfterBuild)
     
-    if($($global:DefaultVIServers.Count) -gt 0) {
+    if($($global:DefaultVIServer.Count) -gt 0) {
         Disconnect-VIServer * -Force -Confirm:$false | Out-Null
     }
 } else {
@@ -3705,8 +3705,18 @@ $startupHostCode = {
 		write-host "Unable to connect to vCenter!"
 		exit
 	}
-    write-host "Add CD/ISO $VM_name"
-    New-CDDrive -VM $VM_name -ISOPath ("[$ds] ISO\" + $vmPrefix + "VLC_vSphere.iso") -StartConnected:$true -Confirm:$false -Verbose:$true
+    write-host "Add CD/ISO $VM_name and set to boot"
+    #New-CDDrive -VM $VM_Name -ISOPath ("[$ds] ISO\" + $vmPrefix + "VLC_vSphere.iso") -StartConnected:$true -Confirm:$false -Verbose:$true
+    New-CDDrive -VM $VM_Name -Confirm:$false
+    #Set EFI Boot Order
+    $vmBO = Get-VM -Name $VM_name
+    $vmBOSpec = New-Object -TypeName VMware.Vim.VirtualMachineConfigSpec
+    $vmBOSpec.BootOptions = $vmBO.ExtensionData.Config.BootOptions
+    $vmBOCD = New-Object -TypeName VMware.Vim.VirtualMachineBootOptionsBootableCdromDevice
+    $vmBOSpec.BootOptions.BootOrder = $vmBOCD
+    $vmBO.ExtensionData.ReconfigVM($vmBOSpec)
+
+    Get-VM -Name $VM_Name | Get-CDDrive | Set-CDDrive -ISOPath ("[$ds] ISO\" + $vmPrefix + "VLC_vSphere.iso") -StartConnected:$true -Confirm:$false -Verbose:$true
 
 	Start-VM -VM $VM_Name | Out-Null
 
@@ -4198,7 +4208,9 @@ if($global:Ways -notmatch "expansion"){
     connectVI -vmHost $hclVMHost -vmUser "root" -vmPass $global:userOptions.masterPassword -numTries 5
     $hclVMHostObj = Get-VMHost
     Get-CustomVsanEsaHcl -Vmhost $hclVMHostObj
-    Disconnect-VIServer * -Force -Confirm:$false | Out-Null
+    if ($($global:DefaultVIServer.Count) -gt 0) {
+        Disconnect-VIServer * -Force -Confirm:$false | Out-Null
+    }
 }
 #endregion Imaging
 
