@@ -4388,7 +4388,6 @@ public static class Dummy {
     $domainManagercfg+="echo nsxt.manager.wait.minutes=45`n"
     $domainManagercfg+="echo nsxt.manager.cluster.size=1`n"
     $domainManagercfg+="echo nsxt.management.resources.validation.skip=true`n"
-    $domainManagercfg+="echo vc7.deployment.option=tiny`n"
     $domainManagercfg+=")>>/etc/vmware/vcf/domainmanager/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/lcm.core.manifest.poll.interval=300000/lcm.core.manifest.poll.interval=120000/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
     $domainManagercfg += "sed -i 's/vsan.healthcheck.enabled=true/vsan.healthcheck.enabled=false/g' /opt/vmware/vcf/lcm/lcm-app/conf/application-prod.properties`n"
