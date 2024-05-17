@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v5.1.1 4/11/2024
+# VLC - Lab Constructor beta v5.1.1 5/17/2024
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com;
 # wlam@vmware.com for some awesome scripting work on ESA HCL!
@@ -1499,6 +1499,11 @@ Function parseBringUpFile
         $txtCBIP.enabled = $false
         $txtMgmtNetVlan.enabled = $false
     }
+    if ($($global:bringUpOptions.vsanSpec | Select -ExpandProperty esaconfig | Select -ExpandProperty enabled)) {
+        $chkVSANSA.checked = $true
+    } else {
+        $chkVSANSA.checked = $false
+    }
     $txtMgmtNetVlan.enabled =$false
     $txtMgmtGateway.enabled = $false
     $txtDomainName.enabled = $false
@@ -1600,6 +1605,7 @@ function setFormControls ($formway)
                         $chkSb.Enabled = $true
                         $chkSb.Checked = $true
 
+                        $chkVSANSA.Enabled = $false
                         $chkEC.Visible = $true
                         $lblchkEC.Visible = $true
  
@@ -1683,6 +1689,7 @@ function setFormControls ($formway)
                         $chkSb.Enabled = $true
                         $chkSb.Checked = $true
 
+                        $chkVSANSA.Enabled = $false
                         $chkEC.Visible = $true
                         $lblchkEC.Visible = $true
  
@@ -1768,6 +1775,10 @@ function setFormControls ($formway)
                         $chkSb.Enabled = $false
                         $chkSb.Checked = $false
                         $chkSb.Visible = $false
+
+                        $chkVSANSA.Enabled = $true
+                        $chkVSANSA.Checked = $false
+                        $chkVSANSA.Visible = $true
 
                         $chkEC.Visible = $false
                         $lblchkEC.Visible = $false
@@ -2666,6 +2677,8 @@ if ($isCLI) {
             "listCluster" {$tip = "Select the cluster to deploy VCF in.  If you entered a vCenter above and have cluster(s)`n configured this list will be populated and you can select a cluster"}
             "listNetName" {$tip = "Select the portgroup to deploy VCF on.  This list will only be populated with portgroups `nthat have the required pre-requesite security features set to accept.  Make sure your jumphost has a NIC and IP `naddress attached to this portgroup!"}
             "listDatastore" {$tip = "Select the datastore to deploy VCF to"}
+            "chkVSANSA" {$tip = "Set in the EMS JSON in all modes except Expansion"}
+            "lblVSANSA" {$tip = "Set in the EMS JSON in all modes except Expansion`n *Potential rapid storage consumption*"}
           }
          $tooltips.SetToolTip($this,$tip)
     } #end ShowHelp
@@ -2993,6 +3006,32 @@ if ($isCLI) {
                     
             })
             $txtBringupFile.Add_MouseHover($ShowTips)
+
+            $chkVSANSA = New-Object system.windows.Forms.CheckBox
+            $chkVSANSA.Name = "chkVSANSA"
+            $chkVSANSA.AutoSize = $true
+            $chkVSANSA.Width = 20
+            $chkVSANSA.Height = 20
+            $chkVSANSA.location = new-object system.drawing.point(305,330)
+            $chkVSANSA.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
+            $chkVSANSA.Add_MouseHover($ShowTips)
+            if($global:Ways -match "expansion"){
+                $chkVSANSA.Enabled = $true
+            } else {
+                $chkVSANSA.Enabled = $false
+            }
+            $frmVCFLCMain.controls.Add($chkVSANSA)
+
+            $lblVSANSA = New-Object system.windows.Forms.Label
+            $lblVSANSA.Name = "lblVSANSA"
+            $lblVSANSA.Text = "VSAN ESA?"
+            $lblVSANSA.AutoSize = $true
+            $lblVSANSA.Width = 85
+            $lblVSANSA.Height = 20
+            $lblVSANSA.location = new-object system.drawing.point(321,330)
+            $lblVSANSA.Font = [System.Drawing.Font]::"Microsoft Sans Serif,10"
+            $lblVSANSA.Add_MouseHover($ShowTips)
+            $frmVCFLCMain.controls.Add($lblVSANSA)
         
             $chkEC = New-Object system.windows.Forms.CheckBox
             $chkEC.Name = "chkEC"
@@ -3635,6 +3674,11 @@ if ($isCLI) {
                                 #$global:bringupAfterBuild = $true
                                 $global:userOptions += @{"bringupAfterBuild" = $true}
                             } 
+                            If ($chkVSANSA.Checked){
+                                $global:userOptions += @{"vsanSA" = "ESA"}
+                            } else {
+                                $global:userOptions += @{"vsanSA" = "OSA"}
+                            }
 
 					        $frmVCFLCMain.Dispose()
                    
