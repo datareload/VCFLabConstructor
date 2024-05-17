@@ -2330,7 +2330,7 @@ function createHostCode ($vmToGen, $userOptions, $logpath, $dateFormat){
     $config.DeviceChange[3].Device.UnitNumber = 0
     $config.DeviceChange[3].Device.CapacityInKB = $([INT]$GBguestdisks[0]*1MB)
     $config.DeviceChange[3].Operation = 'add'
-    if($vsanSA -match "OSA" -or $global:Ways -match "expansion"){
+    if($vsanSA -match "OSA"){
         $config.DeviceChange[4] = New-Object VMware.Vim.VirtualDeviceConfigSpec
         $config.DeviceChange[4].FileOperation = 'create'
         $config.DeviceChange[4].Device = New-Object VMware.Vim.VirtualDisk
