@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v5.1.1 5/17/2024
+# VLC - Lab Constructor beta v5.2.l 8/1/2024
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com;
 # wlam@vmware.com for some awesome scripting work on ESA HCL!
@@ -14,7 +14,7 @@ param (
 $WarningPreference="SilentlyContinue"
 $global:isExit = $false
 $numHosts=0
-$global:scriptDir = Split-Path $MyInvocation.MyCommand.Path
+$global:scriptDir = $PSScriptRoot 
 $global:ovfToolPath = ""
 $global:userOptions = @{}
 $global:bringUpOptions = @{}
@@ -27,8 +27,9 @@ $global:dateFormat = "yyyyMMdd_HHmmss"
 $logPathDir = New-Item -ItemType Directory -Path "$scriptDir\Logs" -Force
 $logfile = "$logPathDir\VLC-Log-$(get-date -format $global:dateFormat).txt"
 $tempDir = "Temp-$(Get-Date -Format $global:dateFormat)"
-
-$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v5.1.1 - Process Window'
+if($IsWindows){
+	$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v5.2 - Process Window'
+}
 $welcomeText =@"
 Welcome to:
 __     ______ _____ _          _      ____                _                   _             
@@ -95,37 +96,44 @@ foreach ($mod in $moduleInstalled) {
 #Check if OVFTool 4.5 is installed
     write-host "Checking if VMware OVF Tool 4.5 or newer is installed."
 
-    if ([IntPtr]::Size -eq 4) {
-        $regpath = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
-    } else {
-        $regpath = @(
-            'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
-            'HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
-        )
-    }
+    if ($IsWindows){
+	    if ([IntPtr]::Size -eq 4) {
+        	$regpath = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
+    	    } else {
+        	$regpath = @(
+            		'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
+            		'HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+            	)
+    	    }
     
-    $result = Get-ItemProperty $regpath | Select-Object DisplayName, DisplayVersion | Where-Object {$_.DisplayName -like "VMware OVF Tool"}
-
-    if ($result -eq $null) {
+        $result = Get-ItemProperty $regpath | Select-Object DisplayName, DisplayVersion | Where-Object {$_.DisplayName -like "VMware OVF Tool"}
+    } else {
+	    $result = Invoke-Expression "ovftool -v"
+    }
+    if ($result -eq $null -or $result -contains "not found") {
         write-host "Please Install VMware OVF Tool 4.5 or greater from https://www.vmware.com/support/developer/ovf/ and re-run the script." -ForegroundColor Yellow
         Read-Host -Prompt "Press enter to exit"
         Exit
-    } elseif ([System.Version]$result.DisplayVersion -lt [System.Version]"4.5.0" ){
+    } elseif ( $isWindows -and [System.Version]$result.DisplayVersion -lt [System.Version]"4.5.0" ){
         write-host "Please upgrade to VMware OVF Tool 4.5 or greater from https://www.vmware.com/support/developer/ovf/ and re-run the script." -ForegroundColor Yellow
         Read-Host -Prompt "Press enter to exit"
         Exit
     } else {
-        write-host "Found VMware OVF Tool version $($result.DisplayVersion.ToString()) installed."
-        $ovfToolPath = $(Get-ItemProperty -Path 'HKLM:\SOFTWARE\VMware, Inc.\VMware OVF Tool\' | Select-Object InstallPath).InstallPath
+        write-host "Found VMware OVF Tool installed."
+	if($IsWindows){
+        	$ovfToolPath = $(Get-ItemProperty -Path 'HKLM:\SOFTWARE\VMware, Inc.\VMware OVF Tool\' | Select-Object InstallPath).InstallPath
+	} else {
+		$ovfToolPath = Invoke-Expression "which ovftool | sed `'s|/[^/]|$|/|`'"
+	}
     }
 
 #Import Forms
+if ($IsWindows){
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName PresentationFramework
     Add-Type -AssemblyName System.Drawing
-
+}
 #endregion Imports
-
 #region Functions
 #Functions
 Function logger($strMessage, [switch]$logOnly,[switch]$consoleOnly)
@@ -143,9 +151,12 @@ Function logger($strMessage, [switch]$logOnly,[switch]$consoleOnly)
 }
 Function byteWriter($dataIn, $fileOut) 
 {
-    [Byte[]] $byteDataIn = [System.Text.Encoding]::UTF8.GetBytes($dataIn)
-    $defaultHostPath = "$scriptDir\$tempDir\$fileout"
-    [System.IO.File]::WriteAllBytes($defaultHostPath,$byteDataIn) 
+	$bytedataIn = [System.Text.Encoding]::UTF8.GetBytes($dataIn)
+	Set-Content -Value $bytedataIn -Path $scriptDir\$tempDir\$fileout -AsByteStream
+
+    #[Byte[]] $byteDataIn = [System.Text.Encoding]::UTF8.GetBytes($dataIn)
+    #$defaultHostPath = "$scriptDir\$tempDir\$fileout"
+    #[System.IO.File]::WriteAllBytes($defaultHostPath,$byteDataIn) 
 }
 Function Get-IniContent ($filePath)
 {
@@ -618,7 +629,6 @@ Function Get-FileName($initialDirectory, $filterParam, $action)
 }
 Function Get-VIInfo($vmHost, $vmUser, $vmPassword)
 {
-#    $isVIConnected = Connect-VIServer -Server $vmHost -User $vmUser -Password $vmPassword
     $isVIConnected = connectVI -vmHost $vmHost -vmUser $vmUser -vmPassword $vmPassword
     $vmCluster = ""
     $vmNetworks = ""
@@ -711,7 +721,7 @@ Function Get-VIInfo($vmHost, $vmUser, $vmPassword)
                         Set-ScsiController $testSCSI -Type ParaVirtual -ErrorAction Stop
 
                     } Catch {
-                    
+
                         logger "$_.Exception.Message"
                         $isVCControlled = $true
                     
@@ -787,7 +797,9 @@ Function Get-VIInfo($vmHost, $vmUser, $vmPassword)
 }       
 function extractvSphereISO ($vSphereISOPath)
 {
- 
+   
+   $folder = New-Item -Path $scriptDir/$tempDir -ItemType "directory" -Name ISO -Force
+   if($isWindows){ 
     $mount = Mount-DiskImage -ImagePath "$vSphereISOPath" -PassThru
  
          if($mount) {
@@ -797,18 +809,17 @@ function extractvSphereISO ($vSphereISOPath)
                 $i++
                 $volume = Get-DiskImage -ImagePath $mount.ImagePath | Get-Volume
                 Start-Sleep 5
-                $source = $volume.DriveLetter
+                $source = "$($volume.DriveLetter):\*"
              } until($i -gt 10 -Or $source)
              if (! $source) {
                  logger "ERROR: Could not get root mount for $vSphereISOPath"
                  Dismount-DiskImage -ImagePath "$vSphereISOPath"
                  exit
              }
-             $folder = mkdir $scriptDir\$tempDir\ISO -Force
         
              logger "Extracting '$vsphereISOPath' mounted on '$source' to '$folder'..."
             
-             $params = @{Path = $source + ":\*"; Destination = $folder; Recurse = $true; Force = $true;}
+             $params = @{Path = $source; Destination = $folder; Recurse = $true; Force = $true;}
              Copy-Item @params
              $hide = Dismount-DiskImage -ImagePath "$vSphereISOPath"
              logger "Copy complete"
@@ -817,6 +828,16 @@ function extractvSphereISO ($vSphereISOPath)
              logger "ERROR: Could not mount $vSphereISOPath check if file is already in use"
              exit
         }
+   } else {
+    	New-Item -Path /mnt -ItemType "directory" -Name iso -Force
+	mount -o loop $vSphereISOPath /mnt/iso
+	$source = "/mnt/iso/*"
+        $params = @{Path = $source; Destination = $folder; Recurse = $true; Force = $true;}
+        Copy-Item @params
+	umount /mnt/iso
+	#Remove-Item -Path "/mnt/iso" -Force
+
+   }
 }
 Function Test-IP ($ipAdx,$iptype)
 {  
@@ -997,7 +1018,7 @@ Function cbConfigurator
             $nicsToCreate.Add($anet1.Name,@{gwip=$anet1.gwip;vlan=$anet1.vlan})
             $hcxNets +=@($anet1.gwip)
             if ($anet1.Name -match "dhcp") {
-                $scopeSubnet = $($anet1.gwip.Split("/")[0]).Replace(".1",".0")
+                $scopeSubnet = $($anet1.gwip.Split("/")[0]) -replace '([0-9]+)$','0'
                 $scopeSubnetMask = CIDRtoSubnet -inputCIDR $anet1.gwip.Split("/")[1]
                 $scopeInterface = "eth0.$($anet1.vlan)"
                 $scopeRouter = $($anet1.gwip.Split("/")[0])
@@ -1019,7 +1040,7 @@ Function cbConfigurator
             $nicsToCreate.Add($anet1.Name,@{gwip=$anet1.gwip;vlan=$anet1.vlan})
             $hcxNets +=@($anet1.gwip)
             if ($anet1.Name -match "dhcp") {
-                $scopeSubnet = $($anet1.gwip.Split("/")[0]).Replace(".1",".0")
+                $scopeSubnet = $($anet1.gwip.Split("/")[0]) -replace '([0-9]+)$','0'
                 $scopeSubnetMask = CIDRtoSubnet -inputCIDR $anet1.gwip.Split("/")[1]
                 $scopeInterface = "eth0.$($anet1.vlan)"
                 $scopeRouter = $($anet1.gwip.Split("/")[0])
@@ -1212,7 +1233,9 @@ Function cbConfigurator
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($tzIngress) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $($nsxSuperNet) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     $replaceNet +="iptables -t nat -A POSTROUTING -s $DhcpIPSubnet/$DhcpSubnetCIDR -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
-    $replaceNet +="iptables -t nat -A POSTROUTING -s $vmMgmtSubnet/$vmMgmtCIDR -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
+    if ($("$vmMgmtSubnet/$vmMgmtCIDR") -notlike $($global:userOptions.mgmtNetSubnet)){
+        $replaceNet +="iptables -t nat -A POSTROUTING -s $vmMgmtSubnet/$vmMgmtCIDR -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
+    }
     #foreach($hcxNet in $hcxNets) {
     #    $replaceNet +="iptables -t nat -A POSTROUTING -s $($hcxNet) -o eth0.$($mgmtVlanId) -j SNAT --to-source $CloudBuilderIP`n"
     #}
@@ -1280,7 +1303,7 @@ Function cbConfigurator
     $replaceDNS +="echo upstream_servers[\`"$reverseDNS\`"] = \`"127.0.0.1\`"`n"
     $replaceDNS +="echo upstream_servers[\`"$revRegionDNS\`"] = \`"127.0.0.1\`"`n"
     $replaceDNS +="echo upstream_servers[\`"$revxRegionDNS\`"] = \`"127.0.0.1\`"`n"
-    if ($revvmMgmtDNS -notmatch $reverseDNS) {
+    if ($revvmMgmtDNS -notlike $reverseDNS) {
         $replaceDNS +="echo upstream_servers[\`"$revvmMgmtDNS\`"] = \`"127.0.0.1\`"`n"
     }
     $replaceDNS +="echo upstream_servers[\`"vcf.holo.lab.\`"] = \`"10.0.0.201\`"`n"
@@ -1293,12 +1316,19 @@ Function cbConfigurator
         $reverseAltSiteDNS = "$($revAltSiteArray[($revAltSiteArray.Count-1)..0] -join '.').in-addr.arpa."
         $replaceDNS +="echo upstream_servers[\`"$reverseAltSiteDNS\`"] = \`"$($global:userOptions.altSiteDNSServerIP)\`"`n"
         $replaceDNS +="echo upstream_servers[\`"$($global:userOptions.altSitevcfDomainName).\`"] = \`"$($global:userOptions.altSiteDNSServerIP)\`"`n"
-        $replaceDNS +="echo recursive_acl = \`"$($($hcxNets -join ",").Replace(".1/",".0/") + ",")$($($hcxNets2 -join ",").Replace(".1/",".0/") + ",")$($($edgeNeighbors[0].peerIP).Split("/")[0]),$($global:userOptions.altSitemgmtNetSubnet),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
-     #   $replaceDNS +="echo recursive_acl = \`"$($($hcxNets -join ",").Replace(".1/",".0/") + ",")$($($edgeNeighbors[0].peerIP).Split("/")[0]),$($global:userOptions.altSitemgmtNetSubnet),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
-
+        if ($("$vmMgmtSubnet/$vmMgmtCIDR") -notlike $($global:userOptions.mgmtNetSubnet)){
+            $replaceDNS +="echo recursive_acl = \`"$($($hcxNets -join ",").Replace(".1/",".0/") + ",")$($($hcxNets2 -join ",").Replace(".1/",".0/") + ",")$($($edgeNeighbors[0].peerIP).Split("/")[0]),$($global:userOptions.altSitemgmtNetSubnet),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress),$("$vmMgmtSubnet/$vmMgmtCIDR")\`"`n"
+        } else {
+            $replaceDNS +="echo recursive_acl = \`"$($($hcxNets -join ",").Replace(".1/",".0/") + ",")$($($hcxNets2 -join ",").Replace(".1/",".0/") + ",")$($($edgeNeighbors[0].peerIP).Split("/")[0]),$($global:userOptions.altSitemgmtNetSubnet),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
+        }
+        #   $replaceDNS +="echo recursive_acl = \`"$($($hcxNets -join ",").Replace(".1/",".0/") + ",")$($($edgeNeighbors[0].peerIP).Split("/")[0]),$($global:userOptions.altSitemgmtNetSubnet),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
 
     } else {
-        $replaceDNS +="echo recursive_acl = \`"$($($edgeNeighbors[0].peerIP).Split("/")[0]),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
+        if ($("$vmMgmtSubnet/$vmMgmtCIDR") -notlike $($global:userOptions.mgmtNetSubnet)){
+            $replaceDNS +="echo recursive_acl = \`"$($($edgeNeighbors[0].peerIP).Split("/")[0]),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress),$("$vmMgmtSubnet/$vmMgmtCIDR")\`"`n"
+        } else {
+            $replaceDNS +="echo recursive_acl = \`"$($($edgeNeighbors[0].peerIP).Split("/")[0]),$DhcpIPSubnet/$DhcpSubnetCIDR,$($nsxSuperNet),$CloudBuilderIPSubnet/$CloudBuilderCIDR,$($avnNets[0]),$($avnNets[1]),$($tzEgress),$($tzIngress)\`"`n"
+        }
     }
     $replaceDNS +="echo filter_rfc1918 = 0`n"
     $replaceDNS +=")> /etc/dwood3rc`n"
@@ -1338,8 +1368,8 @@ Function cbConfigurator
 #Routing Config
     if($global:userOptions.enableFRR) {
         #FRR Config
-        $replaceDNS +="tar -xf /home/admin/vlc-extras.tar -C /home/admin/`n"
-        $replaceDNS +="(`n"
+	$replaceDNS +="tar -xf /home/admin/vlc-extras.tar -C /home/admin/`n"
+	$replaceDNS +="(`n"
         $replaceDNS +="echo [vlc-extras]`n"
         $replaceDNS +="echo name=vlc-extras`n"
         $replaceDNS +="echo baseurl=file:///home/admin/vlc-extras`n"
@@ -1348,7 +1378,7 @@ Function cbConfigurator
         $replaceDNS +=") > /etc/yum.repos.d/vlc-extras.repo`n"
         $replaceDNS +="createrepo /home/admin/vlc-extras`n"
         $replaceDNS +="tdnf install frr -y --disablerepo=`"*`" --enablerepo=`"vlc-extras`"`n"
-        $replaceDNS +="sed -i 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons`n"
+	$replaceDNS +="sed -i 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons`n"
         $replaceDNS +="(`n"
         $replaceDNS +="echo router bgp $($edgeNeighbors.asnPeer[0])`n"
         $replaceDNS +="echo  bgp router-id $CloudBuilderIP`n"
@@ -1361,7 +1391,7 @@ Function cbConfigurator
         }
         $replaceDNS +="echo  !`n"
         $replaceDNS +="echo  address-family ipv4 unicast`n"
-        $replaceDNS +="echo   redistribute kernel`n"
+        $replaceDNS +="echo   redistribute connected`n"
         $replaceDNS +="echo   neighbor $($edgeClusterSpec.edgeClusterName) default-originate`n"
         $replaceDNS +="echo  exit-address-family`n"
         $replaceDNS +=")>> /etc/frr/frr.conf`n"
@@ -1414,7 +1444,7 @@ Function cbConfigurator
     $replaceDNS +="/sbin/chkconfig vaos off`n"
     $replaceDNS +="rm /opt/vmware/etc/init.d/vamitty.conf`n"
     #$replaceDNS +="rm -rf /usr/lib/systemd/system/getty@tty1.service.d`n"
-    $replaceDNS +="echo -e 'Cloudbuilder customized by \e[37;44mVLC 5.1.1\e[0m | \e[30;102mMgmt IP: $CloudBuilderIP\e[0m' >> /etc/issue`n"
+    $replaceDNS +="echo -e 'Cloudbuilder customized by \e[37;44mVLC 5.2\e[0m | \e[30;102mMgmt IP: $CloudBuilderIP\e[0m' >> /etc/issue`n"
     $replaceDNS +="shutdown -r`n"
     $replaceDNS +="END`n"
 
@@ -1426,20 +1456,22 @@ Function cbConfigurator
 
     bytewriter $cbConfig "CBConfig.bash"
 
-    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir\$tempDir\CBConfig.bash" -Destination "/home/admin/" -LocalToGuest -VM $CBName -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
- 
-    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir\etc\maradns-2.0.16-1.x86_64.rpm" -Destination "/home/admin/" -LocalToGuest -VM $CBName -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
+    Set-PowerCLIConfiguration -Scope Session -WebOperationTimeout 300 -Confirm:$false
+    
+    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir/$tempDir/CBConfig.bash" -Destination "/home/admin/" -LocalToGuest -VM $CBName -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
+  
+    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir/etc/maradns-2.0.16-1.x86_64.rpm" -Destination "/home/admin/" -LocalToGuest -VM $CBName -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
 
-    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir\etc\gobgp-2.9.0-2.ph3.x86_64.rpm" -Destination "/home/admin/" -LocalToGuest -VM $CBName -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
+    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir/etc/gobgp-2.9.0-2.ph3.x86_64.rpm" -Destination "/home/admin/" -LocalToGuest -VM $CBName -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
 
-    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir\etc\vlc-extras.tar" -Destination "/home/admin/" -LocalToGuest -VM $CBName -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
-
+    Copy-VMGuestFile -Server $($userOptions.esxhost) -Source "$scriptDir/etc/vlc-extras.tar" -Destination "/home/admin/" -LocalToGuest -VM $CBName -GuestUser admin -GuestPassword $($userOptions.masterPassword) -Force
+    
     Invoke-VMScript -ScriptType Bash -Server $($userOptions.esxhost) -GuestUser root -GuestPassword $($userOptions.masterPassword) -VM $CBName -HostUser $($userOptions.username) -HostPassword $($userOptions.password) -ScriptText "rpm -i /home/admin/maradns-2.0.16-1.x86_64.rpm;rpm -i /home/admin/gobgp-2.9.0-2.ph3.x86_64.rpm;chmod 777 /home/admin/CBConfig.bash;/home/admin/CBConfig.bash"
 
     do {
 	      logger "Waiting for CloudBuilder Network to be available..."
 	      Start-Sleep 60      
-	    } until(Test-NetConnection $CloudBuilderIP -Port 22| Where-Object { $_.tcptestsucceeded } )
+	    } until(Test-Connection $CloudBuilderIP -TCPPort 22)
 
     do {
           $CBOnline = Get-VM -Name $CBName
@@ -1455,9 +1487,9 @@ Function cbConfigurator
     } else {
         $cbDhcpSvc = "dhcpd4@eth0"
     }
-#>
-    Invoke-VMScript -ScriptType Bash -Server $($userOptions.esxhost) -GuestUser root -GuestPassword $($userOptions.masterPassword) -VM $CBName -HostUser $($userOptions.username) -HostPassword $($userOptions.password) -ScriptText "systemctl restart $cbDhcpSvc"
 
+    Invoke-VMScript -ScriptType Bash -Server $($userOptions.esxhost) -GuestUser root -GuestPassword $($userOptions.masterPassword) -VM $CBName -HostUser $($userOptions.username) -HostPassword $($userOptions.password) -ScriptText "systemctl restart $cbDhcpSvc"
+#>
 }
 Function CIDRtoSubnet ($inputCIDR) 
 {
@@ -1628,7 +1660,7 @@ function setFormControls ($formway)
                         $txtBringUpFile.Enabled = $true
                         $lblBringUpFile.visible = $true
                         $txtBringUpFile.visible = $true
-                        $txtBringUpFile.Text = "$scriptDir\NOLIC-5.1.1-EVAL.ems.json"
+                        $txtBringUpFile.Text = "$scriptDir\NOLIC-5.2-EVAL.ems.json"
 
                         $lblMgmtNetVLAN.Enabled = $false
                         $txtMgmtNetVLAN.Enabled = $false
@@ -2085,7 +2117,7 @@ function sddcTaskPoll ($sddcMgrIP, $apiTokens, $taskId, $wldVCInfo) {
                             } else {
                             $currTask = $taskInfo
                             } 
-                            if ($currTask.name -eq "Deploy NSX Manager" -and !$runvCLSFixOnce){
+                           <# if ($currTask.name -eq "Deploy NSX Manager" -and !$runvCLSFixOnce){
                                 logger "Checking vCLS VM's to ensure they power up"
                                 vclsFix -vcServer $wldVCInfo.vc -vcUser $wldVCInfo.ssoUser -vcPass $wldVCInfo.ssoPass -hostUser "root" -hostPass $($userOptions.masterPassword)
                                 $runvCLSFixOnce = 1
@@ -2099,7 +2131,7 @@ function sddcTaskPoll ($sddcMgrIP, $apiTokens, $taskId, $wldVCInfo) {
                                 }
                                 $rebootHosts = 1
                                 Disconnect-VIServer * -Force -Confirm:$false | Out-Null
-                            }
+                            }#>
                         if ($($currTask.name) -ne $thisTask -and $($currTask.name) -ne "") {
                             logger "Current task: $($currTask.name)"
                             $thisTask = $($currTask.name)
@@ -2295,7 +2327,7 @@ function createHostCode ($vmToGen, $userOptions, $logpath, $dateFormat){
     $config.MemoryMB = $([INT]$GBram * 1KB)
     $config.NumCoresPerSocket = $numcpu
     $config.Firmware = 'efi'
-    $config.GuestId = 'otherGuest64'
+    $config.GuestId = 'vmkernel7guest'
     $config.DeviceChange = New-Object VMware.Vim.VirtualDeviceConfigSpec[] ($totalConfigDevices)
     $config.DeviceChange[0] = New-Object VMware.Vim.VirtualDeviceConfigSpec
     $config.DeviceChange[0].Device = New-Object VMware.Vim.VirtualMachineVideoCard
@@ -2435,7 +2467,7 @@ function Get-CustomVsanEsaHcl {
         $Vmhost
     )
 
-    $supportedESXiReleases = @("ESXi 8.0 U2")
+    $supportedESXiReleases = @("ESXi 8.0 U3")
 
     logger "`nCollecting SSD information from ESXi host ${vmhost} ... "
 
@@ -2587,16 +2619,141 @@ function Get-CustomVsanEsaHcl {
     Disconnect-VIServer -Server $($global:userOptions.esxhost) -Confirm:$false -Force | Out-Null
 }
 
-# Usage:
-# Get-CustomVsanEsaHcl -Vmhost (Get-VMHost)
+function importOVA {
+    param (
+        [Parameter(Mandatory=$true)]
+        [ValidateNotNull()]
+        $ovaInfo,
+        [Parameter(Mandatory=$true)]
+        [ValidateNotNull()]
+        [System.Collections.ArrayList]$ovaArgs,
+        [Parameter(Mandatory=$true)]
+        [ValidateNotNull()]
+        $infraArgs,
+        $vmPrefix,
+        $numReboots = 0
+    )
+    [System.Collections.ArrayList]$importOvaArgs=@(
+        "--acceptAllEulas" 
+        "--skipManifestCheck"
+        "--X:injectOvfEnv"
+        "--X:logLevel=verbose"
+        "--X:logFile=`"$scriptDir\Logs\$($ovaInfo.Name)-$(get-date -format $global:dateFormat).txt`""
+        "-ds=`"$($infraArgs.ds)`""
+        "-dm=thin"
+        "--noSSLVerify"
+        "--powerOn" 
+    )
+    $ovaInfo.Name = "$vmPrefix-$($ovaInfo.Name)"
+    $ovaArgs.Add("--name=$($ovaInfo.Name)")
+    $ovaArgs.AddRange($importOvaArgs)
+    $ovaArgs.Add($ovaInfo.OVALoc)
+    connectVI -vmHost $infraArgs.esxhost -vmUser $infraArgs.username -vmPassword $infraArgs.password -numTries 3
+    $ovfCmd = "$($ovfToolPath)ovftool"
+    if ($infraArgs.cluster.Length -eq 0) {
+        $ovaArgs.Add("`"vi://$($infraArgs.username):$($infraArgs.password)@$($infraArgs.esxhost)`"")
+    } else {
+        #Get the MoRef of the Cluster in case it has spaces or illegal characters
+        $targetCluster = Get-Cluster | Where-Object {$_.Name -eq $clusterOVF}
+        $clusterMoref = $targetCluster.ExtensionData.MoRef.Value
+        $ovaArgs.Add("`"vi://${($infraArgs.username)}:${($infraArgs.password)}@${($infraArgs.esxhost)}:443?moref=vim.ClusterComputeResource:${clusterMoref}`"")
+    }
+    $getKey = "R"
+    Do {
+        Try{
+            $result = Start-Process $ovfCmd -ArgumentList $ovaArgs -Wait -PassThru -NoNewWindow
+            if ($result.ExitCode -ne 0) {
+                throw $result.ExitCode
+            }
+            $getKey = ""
+        } catch {
+            $ovfCmdLine = "`"$ovfCmd`" $($ovaArgs -join ' ')"
+            logger "There was a problem importing $($ovaInfo.Name) with OVF tool, the process exited with a non zero code: $_`n"
+            logger "See VLC Process Window or the $($ovaInfo.Name) log in $scriptDir\Logs for more info!"
+            logger "You can Retry, or run the command below by copying/pasting into another powershell window" -consoleOnly
+            logger "---------------------------------------------------------------------------" -consoleOnly
+            logger "& $ovfCmdLine`n" -consoleOnly
+            $getKey = Read-Host "Enter R to Retry, Enter N to exit, or any other key to Continue after/if the manual import is successful." 
+            If ($getKey -ilike 'N') {
+                Exit
+            }
+        }
+    } Until ($getKey -inotlike "R")
+    # Wait for Imported VM to come online
+    Test-Online -testAction vmtools -vmToTest $($ovaInfo.Name)
+    if ($numReboots -gt 0){
+        $rebootNumber=0
+        Do {
+            Test-Online -testAction vmtoolsdown -vmToTest $($ovaInfo.Name)
+            $rebootNumber++
+        } until ($rebootNumber -eq $numReboots)
+    }
 
+    Disconnect-VIserver * -Confirm:$false | Out-Null
+}
+function Test-Online {
+    param (
+        [ValidateSet("vmtools", "vmtoolsdown", "ip","url",IgnoreCase=$True)]
+        [Parameter(Position=0, Mandatory=$true)]
+        [String]$testAction,
+        [String]$vmToTest,
+        [String]$ipToTest,
+        [INT]$testPort,
+        [String]$urlToTest,
+        [INT]$httpStatusToTest
+    )
+    if($testAction -like "ip"){
+        do {
+            logger "Waiting for $vmToTest IP $iptoTest`:$testPort to be available..."
+            Start-Sleep 60      
+            } until(Test-Connection $ipToTest -TCPPort $testPort)
+            logger "$vmToTest is responding!"
+    } elseif ($testAction -like "vmtools") {
+        do {
+            $vmOnline = Get-VM -Name $vmToTest
+            logger "Waiting for $vmToTest vmtools to be started"
+            Start-Sleep 60  
+            } until($vmOnline.ExtensionData.Guest.ToolsRunningStatus -eq "guestToolsRunning")
+            logger "$vmToTest vmtools are running!"
+    } elseif ($testAction -like "vmtoolsdown") {
+        logger "Waiting for $vmToTest vmtools to be stopped - Detecting Reboot"
+        do {
+            $vmOnline = Get-VM -Name $vmToTest
+            Start-Sleep 2  
+            } until($vmOnline.ExtensionData.Guest.ToolsRunningStatus -eq "guestToolsNotRunning")
+            logger "$vmToTest vmtools are shutdown, waiting for reboot"
+            Start-Sleep 5
+            Test-Online -testAction vmtools -vmToTest $vmToTest
+    } else {
+        $apiUp = $false
+        logger "Checking if $vmToTest URL is available..."
+        do {
+            try {
+                $checkURLParms = @{
+                    Uri         = "$urlToTest"
+                    Method      = 'GET'
+                    ContentType = 'application/json'
+                    }
+                Invoke-RestMethod @checkURLParms @global:skipSSLFlag
+                Start-Sleep 5
+            } catch {
+                if ($_.Exception.Response.StatusCode.value__ -eq 401) {
+                    $apiUp = $true
+                    logger "URL is responding"
+                }
+            }
+        } until($apiUp)
+    }
+}
 
 #endregion Functions
 
 #Clean Temp / Initialize Log and logging window
 
 logger $welcomeText -logOnly
-$logWindow = Start-Process powershell -Argumentlist "`$host.UI.RawUI.WindowTitle = 'VLC Logging window';Get-Content '$logfile' -wait" -PassThru
+if($IsWindows){
+	$logWindow = Start-Process powershell -Argumentlist "`$host.UI.RawUI.WindowTitle = 'VLC Logging window';Get-Content '$logfile' -wait" -PassThru
+}
 
 #region CLI mode
 
@@ -2611,9 +2768,11 @@ if ($isCLI) {
 
     $iniContent = @(Get-Content $iniConfigFile) -match '\S'
     $global:userOptions += @{"internalSvcs" = "True"}
-    $global:userOptions += @{"guestOS" = "otherGuest64"}
+    $global:userOptions += @{"guestOS" = "vmkernel7guest"}
     $global:userOptions += @{"Typeguestdisk"="Thin"}
-    $global:userOptions += @{"cbName"="CB-01a"}
+    if(!$global:userOptions.cbName){
+        $global:userOptions += @{"cbName"="CB-01a"}
+    }
     $global:Ways = "internalsvcs"
     foreach($ic in $iniContent) {if($ic -notmatch '^[;#]'){$global:userOptions +=@{$ic.Split("=",2)[0]=$ic.Split("=",2)[1]}}}
     $global:bringUpOptions = Get-Content -Raw $($global:userOptions.VCFEMSFile)  | ConvertFrom-Json
@@ -2720,7 +2879,7 @@ if ($isCLI) {
 "@
 #region formControls
             $frmVCFLCMain = New-Object system.Windows.Forms.Form
-            $frmVCFLCMain.Text = "VCF Lab Constructor beta 5.1.1"
+            $frmVCFLCMain.Text = "VCF Lab Constructor beta 5.2"
             $frmVCFLCMain.TopMost = $true
             $frmVCFLCMain.Width = 850
             $frmVCFLCMain.Height = 450
@@ -3642,7 +3801,7 @@ if ($isCLI) {
                             "Typeguestdisk"="Thin"
 	                        "ds"=$listDatastore.SelectedItem
                             "masterPassword"=$txtMasterPass.Text
-                            "guestOS"="otherGuest64"
+                            "guestOS"="vmkernel7guest"
                             "cbIPAddress"=$txtCBIP.Text 
                             "dnsServer"=$txtDNS.Text
                             "ntpServer"=$txtNTP.Text
@@ -3678,7 +3837,7 @@ if ($isCLI) {
                                 $global:userOptions += @{"vsanSA" = "ESA"}
                             } else {
                                 $global:userOptions += @{"vsanSA" = "OSA"}
-                            }
+                            } 
 
 					        $frmVCFLCMain.Dispose()
                    
@@ -3768,14 +3927,14 @@ $startupHostCode = {
 	  write-Host "Waiting for host to install and reboot."$dotBar
 	  Start-Sleep 30 
 	  $dotBar += "."
-    } until(Test-NetConnection $mgmtIP -Port 22 | Where-Object { $_.tcptestsucceeded } )
+    } until(Test-Connection $mgmtIP -TCPPort 22)
     
     do {
         $ESXiOnline = Get-VM -Name $VM_Name
         logger "Waiting for host to be online."$dotBar
         Start-Sleep 30
         $dotBar += "."  
-      } until($ESXiOnline.ExtensionData.Guest.ToolsRunningStatus -eq "guestToolsRunning") 
+      } until($($ESXiOnline.ExtensionData.Guest.ToolsRunningStatus) -eq "guestToolsRunning") 
 
     Write-Host "Host online!"
 
@@ -3801,7 +3960,7 @@ if ($userOptions.nestedVMPrefix.Length -gt 0) {
     $userOptions.nestedVMPrefix = $userOptions.nestedVMPrefix + "-"
 } 
 
-logger "----------------------Inputs------------------5.1.1--"
+logger "----------------------Inputs------------------5.2--"
 foreach ($uO in $global:userOptions.GetEnumerator() | Sort-Object Name){logger $($uO.Key + "`t`t" + $uO.Value)}
 logger "--------------------END-Inputs-----------------------" 
 
@@ -3835,6 +3994,12 @@ $numHosts = $hostsToBuild.Count
 
 If (!$chkHostOnly.Checked) {
 #region CloudBuilder Import
+    # Import HoloRouter
+
+    if ($userOptions.deployHoloRouter){
+        logger "Importing HoloRouter OVF"
+
+    }
     # Import CloudBuilder
     logger "Importing CloudBuilder OVF"
     Connect-VIserver $userOptions.esxhost -user $userOptions.username -password $userOptions.password | Out-Null
@@ -3859,7 +4024,7 @@ If (!$chkHostOnly.Checked) {
     $cbISOLoc=$userOptions.CBISOLoc
     $vSphereISOLoc=$userOptions.vSphereISOLoc
 
-    $ovfCmd = "$($ovfToolPath)ovftool.exe"
+    $ovfCmd = "$($ovfToolPath)ovftool"
 
     [System.Collections.ArrayList]$ovfArgs = @(
 		    "--name=$cbName" 
@@ -3924,6 +4089,17 @@ If (!$chkHostOnly.Checked) {
 
     logger "CloudBuilder online!"
 
+    # Wait for reboot
+    $numReboots = 1
+
+    if ($numReboots -gt 0){
+        $rebootNumber=0
+        Do {
+            Test-Online -testAction vmtoolsdown -vmToTest $cbName
+            $rebootNumber++
+        } until ($rebootNumber -eq $numReboots)
+    }
+
     if($global:Ways -match 'externalsvcs' -and $mgmtVlan -ne 0) {
 
         logger "Setting VLAN on CloudBuilder"
@@ -3959,25 +4135,25 @@ If (!$chkHostOnly.Checked) {
 
     }
     
-    mkdir $scriptDir\$tempDir -Force
+    New-Item -Path $scriptDir -ItemType "directory" -Name $tempDir -Force
     
     if([bool]$userOptions.useCBIso) {
 
         logger "Retrieving ESXi ISO from CloudBuilder, this will take a minute or two..."
-        mkdir $scriptDir\cb_esx_iso -Force
+        New-Item -Path $scriptDir -ItemType "directory" -Name cb_esx_iso -Force
         $esxiPath = $(Invoke-VMScript -ScriptText "find /mnt/iso/*/esx_iso -name *.iso | grep visor" -ScriptType Bash -GuestUser admin -GuestPassword $masterPassword -VM $cbOnline).ScriptOutput.Trim()
         $esxiBuild = $($esxiPath.Split("/")[$($esxiPath.Split("/").Count)-1])
-        $osEsxiPath = "$scriptDir\$tempDir\$esxiBuild"
-        $copyEsxiPath = "$scriptDir\cb_esx_iso\$esxiBuild"
+        $osEsxiPath = "$scriptDir/$tempDir/$esxiBuild"
+        $copyEsxiPath = "$scriptDir/cb_esx_iso/$esxiBuild"
         If (Test-Path -Path $copyEsxiPath) {
             logger "Matching version of ESXi detected locally, skipping copy from Cloudbuilder and copying from $copyEsxiPath to Temp directory."
             Copy-Item $copyEsxiPath -Destination $osEsxiPath -Recurse
             $userOptions['vSphereISOLoc'] = $osEsxiPath
         } else {
-            Copy-VMGuestFile -Source $esxiPath -Destination "$scriptDir\$tempDir\" -VM $CBOnline -GuestToLocal -GuestUser admin -GuestPassword $masterPassword -ToolsWaitSecs 30 -Force
-            logger "Making backup copy of the ESXi ISO in $scriptDir\cb_esx_iso\ for future use with Expansion Pack"
-            Copy-Item $osEsxiPath -Destination "$scriptDir\cb_esx_iso\" -Recurse
-            $userOptions['vSphereISOLoc'] = $(Get-ChildItem -Path "$scriptDir\$tempDir\*.iso" | Select-Object FullName).FullName        
+            Copy-VMGuestFile -Source $esxiPath -Destination "$scriptDir/$tempDir/" -VM $CBOnline -GuestToLocal -GuestUser admin -GuestPassword $masterPassword -ToolsWaitSecs 30 -Force
+            logger "Making backup copy of the ESXi ISO in $scriptDir/cb_esx_iso/ for future use with Expansion Pack"
+            Copy-Item $osEsxiPath -Destination "$scriptDir/cb_esx_iso/" -Recurse
+            $userOptions['vSphereISOLoc'] = $(Get-ChildItem -Path "$scriptDir/$tempDir/*.iso" | Select-Object FullName).FullName
         }
     } else {
         logger "Using ESXi ISO located here: $vSphereISOLoc"
@@ -4016,10 +4192,10 @@ If (!$chkHostOnly.Checked) {
 
 extractvSphereISO($userOptions.vSphereISOLoc)
 
-Set-ItemProperty $scriptDir\$tempDir\ISO\ISOLINUX.BIN -name IsReadOnly -value $false
-Set-ItemProperty $scriptDir\$tempDir\ISO\ISOLINUX.CFG -name IsReadOnly -value $false
-Set-ItemProperty $scriptDir\$tempDir\ISO\BOOT.CFG -name IsReadOnly -value $false
-Set-ItemProperty $scriptDir\$tempDir\ISO\EFI\BOOT\BOOT.CFG -name IsReadOnly -value $false
+Set-ItemProperty $scriptDir\$tempDir\ISO\isolinux.bin -name IsReadOnly -value $false
+Set-ItemProperty $scriptDir\$tempDir\ISO\isolinux.cfg -name IsReadOnly -value $false
+Set-ItemProperty $scriptDir\$tempDir\ISO\boot.cfg -name IsReadOnly -value $false
+Set-ItemProperty $scriptDir\$tempDir\ISO\efi\boot\boot.cfg -name IsReadOnly -value $false
 
 # Create Hosts
 logger "Starting creation of $numHosts hosts found in JSON and template."
@@ -4077,12 +4253,12 @@ logger "Setting ISOLINUX.CFG info... "
 $isoLinuxCFG="DEFAULT MBOOT.C32`n"
 $isoLinuxCFG+="  APPEND -c BOOT.CFG`n"
 
-byteWriter $isoLinuxCFG "ISO\ISOLINUX.CFG"
+byteWriter $isoLinuxCFG "ISO\isolinux.cfg"
 
 logger "Setting BOOT.CFG info...                "
 
-$curBootCFG = Get-Content "$scriptDir\$tempDir\ISO\BOOT.CFG"
-$curEFIBootCFG = Get-Content "$scriptDir\$tempDir\ISO\EFI\BOOT\BOOT.CFG"
+$curBootCFG = Get-Content "$scriptDir\$tempDir\ISO\boot.cfg"
+$curEFIBootCFG = Get-Content "$scriptDir\$tempDir\ISO\efi\boot\boot.cfg"
 $bootCFGCount = 0 
 foreach ($bootCfgLine in $curBootCFG) {
 
@@ -4104,8 +4280,8 @@ foreach ($bootCfgLine in $curEFIBootCFG) {
 
 }
 
-$curBootCFG | Set-Content "$scriptDir\$tempDir\ISO\BOOT.CFG"
-$curEFIBootCFG | Set-Content "$scriptDir\$tempDir\ISO\EFI\BOOT\BOOT.CFG"
+$curBootCFG | Set-Content "$scriptDir\$tempDir\ISO\boot.cfg"
+$curEFIBootCFG | Set-Content "$scriptDir\$tempDir\ISO\efi\boot\boot.cfg"
 			
 logger "Setting VLC.cfg info...                "
 	
@@ -4174,11 +4350,19 @@ $kscfg+="reboot -d 1`n"
 
 byteWriter $kscfg "ISO\VLC.CFG"
 
-$isoExe = "$scriptDir\bin\mkisofs.exe"
+if ($isWindows){
+	$isoExe = "$scriptDir\bin\mkisofs.exe"
+} else {
+	$isoExe = "/usr/bin/genisoimage"
+}
+
 $scriptDirUnix = $scriptDir.Replace("\","/")
 $currIso = "$(get-date -Format $global:dateFormat)-VLC_vsphere.iso"
-$isoExeArg = "-iso-level 4 -relaxed-filenames -J -b ISOLINUX.BIN -no-emul-boot -boot-load-size 8 -hide boot.catalog -eltorito-alt-boot -b EFIBOOT.IMG -no-emul-boot -ldots -o '$scriptDir\$tempDir\$currIso' '$scriptDirUnix/$tempDir/ISO'"
-
+if($isWindows){
+    $isoExeArg = "-iso-level 4 -relaxed-filenames -J -b ISOLINUX.BIN -no-emul-boot -boot-load-size 8 -hide boot.catalog -eltorito-alt-boot -b EFIBOOT.IMG -no-emul-boot -ldots -o '$scriptDir/$tempDir/$currIso' '$scriptDirUnix/$tempDir/ISO'"
+} else {
+    $isoExeArg = "-iso-level 4 -relaxed-filenames -J -b isolinux.bin -no-emul-boot -boot-load-size 8 -hide boot.catalog -eltorito-alt-boot -b efiboot.img -no-emul-boot -ldots -o '$scriptDir/$tempDir/$currIso' '$scriptDirUnix/$tempDir/ISO'"   <# Action when all if and elseif conditions are false #>
+}
 Invoke-Expression -command "& '$isoExe' $isoExeArg" | out-null
 
 $ds = Get-Datastore $userOptions.ds
@@ -4217,15 +4401,15 @@ Do {
 		$babyJob=$Job.ChildJobs[0]
 
 		write-host $(get-date -Format 'hh:mm') $Job.Name "Status: " -foreground green
-        $rec = New-Object System.Management.Automation.Host.Rectangle(0,$($host.UI.RawUI.CursorPosition.Y-1),10,$($host.UI.RawUI.CursorPosition.Y-1))
-        $currentStateGrab = $host.UI.RawUI.GetBufferContents($rec)
-        $currentState = ""
-        foreach ($curChar in $currentStateGrab) { $currentState = $currentState + $curChar}
-        if (!($currentState -match $babyJob.Information)) {
-            $overWrite = $host.UI.RawUI.CursorPosition
-            [Console]::Write("{0, -$($Host.UI.RawUI.BufferSize.Width)}" -f " ")
-            $host.UI.RawUI.CursorPosition = $overWrite
-        }
+        #$rec = New-Object System.Management.Automation.Host.Rectangle(0,$($host.UI.RawUI.CursorPosition.Y-1),10,$($host.UI.RawUI.CursorPosition.Y-1))
+        #$currentStateGrab = $host.UI.RawUI.GetBufferContents($rec)
+        #$currentState = ""
+        #foreach ($curChar in $currentStateGrab) { $currentState = $currentState + $curChar}
+        #if (!($currentState -match $babyJob.Information)) {
+        #    $overWrite = $host.UI.RawUI.CursorPosition
+        #    [Console]::Write("{0, -$($Host.UI.RawUI.BufferSize.Width)}" -f " ")
+        #    $host.UI.RawUI.CursorPosition = $overWrite
+        #}
 
         if ($babyJob.Information.Count -gt 0) {
 		    write-host $babyJob.Information.Item($($babyJob.Information.Count)-1)
@@ -4398,7 +4582,7 @@ public static class Dummy {
             $currTask = $bringupExec | Select-Object -ExpandProperty sddcSubTasks | where-object {$_.status -eq "IN_PROGRESS"} | Select-Object name
 
             #Address vCLS VM's not starting until after bringup
-            
+            <#
             if ($currTask.name -eq "Deploy NSX Manager" -and !$runvCLSFixOnce){
                 $managementVCIP = $($Global:bringupOptions | Select-Object -ExpandProperty vCenterSpec | Select-Object vcenterIp).vcenterIp
                 $ssoDomain = $($Global:bringUpOptions | Select-Object -ExpandProperty pscSpecs | Select-Object -ExpandProperty pscSsoSpec | Select-Object ssoDomain -Unique).ssoDomain
@@ -4407,7 +4591,7 @@ public static class Dummy {
                 logger "Starting vCLS VM's to ensure additional VMs are spread across cluster"
                 vclsFix -vcServer $managementVCIP -vcUser $ssoCredential -vcPass $ssoAdminPassword -hostUser "root" -hostPass $($userOptions.masterPassword)
                 $runvCLSFixOnce = 1
-            }
+            }#>
             
             if ($($currTask.name) -ne $thisTask -and $($currTask.name) -ne "") {
     
@@ -4484,11 +4668,6 @@ public static class Dummy {
 
     Invoke-VMScript -ScriptType Bash -Server $managementVCIP -GuestUser root -GuestPassword $($userOptions.masterPassword) -VM $sddcManagerVM -ScriptText "chmod 777 /home/vcf/DomainManagerConfig.bash;/home/vcf/DomainManagerConfig.bash" #-RunAsync
 
-    <#do {
-            logger "Waiting for SDDC Manager to reset..."
-            sleep 5      
-        } until(Test-NetConnection $sddcMgrIP -Port 22| ? { !$_.tcptestsucceeded } )#>
-
     logger "Removing Memory reservation on NSX Manager"
     Get-VM -Server $conVcenter -Name $nsxMgtVM | Get-VMResourceConfiguration |Set-VMResourceConfiguration -MemReservationGB 0 -CpuReservationMhz 0
     logger "Disabling VM Monitoring in HA and setting DRS to conservative" 
@@ -4498,7 +4677,7 @@ public static class Dummy {
     do {
             logger "Waiting for SDDC Manager Network to be available..."
             Start-Sleep 60      
-        } until(Test-NetConnection $sddcMgrIP -Port 22| Where-Object { $_.tcptestsucceeded } )
+        } until(Test-Connection $sddcMgrIP -TcpPort 22)
     
     $apiUp = $false
     logger "Checking if SDDC Manager API is available..."
@@ -4540,22 +4719,22 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
     # Import Image into SDDC Manager (the task that runs during bringup doesn't seem to work)
     logger "Obtaining API Token from SDDC Manager"
     $apiTokens = sddcTokenPairCreate -sddcMgrIP $sddcMgrIP -userName $ssoCredential -passWord $ssoAdminPassword
-    logger "Checking for vLCM cluster"
-    $clusterImageBased = $(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "clusters" | Select-Object -ExpandProperty Elements | Select-Object -ExpandProperty isImageBased)
-    if($clusterImageBased){
-        logger "Importing vLCM image to SDDC Manager"
-        $perParms = $(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "domains") | Select-Object -ExpandProperty elements | Select-Object -Property vcenters,clusters
-        $perPayload = @{name="VLC-Image";uploadMode="REFERRED";uploadSpecReferredMode=@{clusterId=$($perParms.clusters[0].id);vCenterId=$($perParms.vcenters[0].id)}}
-        $($perPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\perPayload-$(get-date -Format $global:dateFormat).json
-        $perTaskId = sddcCreateEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "personalities" -payLoad $($perPayload | ConvertTo-Json)
-        if ([string]::IsNullOrEmpty($perTaskId)) {
-            Logger "Unable to obtain Task ID for this operation, please check the VLC Logs and domainmanager logs for more info."
-            break
-        } else {
-            sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId $($perTaskId.id)
-        }
-        $vlcImageID = sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $sddcToken -entityType personalities | Select-Object -ExpandProperty elements | Select-Object -ExpandProperty personalityId -First 1
-    }
+    #logger "Checking for vLCM cluster"
+    #$clusterImageBased = $(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "clusters" | Select-Object -ExpandProperty Elements | Select-Object -ExpandProperty isImageBased)
+    #if($clusterImageBased){
+    #    logger "Importing vLCM image to SDDC Manager"
+    #    $perParms = $(sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "domains") | Select-Object -ExpandProperty elements | Select-Object -Property vcenters,clusters
+    #    $perPayload = @{name="VLC-Image";uploadMode="REFERRED";uploadSpecReferredMode=@{clusterId=$($perParms.clusters[0].id);vCenterId=$($perParms.vcenters[0].id)}}
+    #    $($perPayload | ConvertTo-JSON -Depth 10) | Out-File $scriptDir\Logs\perPayload-$(get-date -Format $global:dateFormat).json
+    #    $perTaskId = sddcCreateEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType "personalities" -payLoad $($perPayload | ConvertTo-Json)
+    #    if ([string]::IsNullOrEmpty($perTaskId)) {
+    #        Logger "Unable to obtain Task ID for this operation, please check the VLC Logs and domainmanager logs for more info."
+    #        break
+    #    } else {
+    #        sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId $($perTaskId.id)
+    #    }
+    $vlcImageID = sddcGetEntity -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -entityType personalities | Select-Object -ExpandProperty elements | Select-Object -ExpandProperty personalityId -First 1
+    #}
     # Ensure vCLS VM's are powered on and working
     #logger "Checking vCLS VM's to ensure they power up"
     #vclsFix -vcServer $managementVCIP -vcUser $ssoCredential -vcPass $ssoAdminPassword -hostUser "root" -hostPass $($userOptions.masterPassword)
@@ -4678,7 +4857,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                 $tzCheck = 1
                 while ($tzCheck -ne $null) {
             
-                    $tzConfigStatus = vcGetObject -vcServer $managementVCIP -vcToken $tzVcToken -entityType namespace-management/clusters -tzCluster "domain-c8"
+                    $tzConfigStatus = vcGetObject -vcServer $managementVCIP -vcToken $tzVcToken -entityType namespace-management/clusters -tzCluster $tzCluster
                     if ($($tzConfigStatus.config_status) -match "RUNNING") {
                         logger "Workload Management configured!"
                         $tzCheck = $null
@@ -4785,7 +4964,8 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                 $clusterPayload.computeSpec | Select-Object -ExpandProperty clusterSpecs | ForEach-Object {$_.clusterImageId = $vlcImageID} 
                 logger "Set licenses"
                 $clusterPayload.computeSpec.clusterSpecs.hostSpecs | ForEach-Object {$_.licenseKey = $global:bringUpOptions.esxLicense}
-                $clusterPayload.computeSpec.clusterSpecs.datastoreSpec.vsanDatastoreSpec.licenseKey = ($global:bringUpOptions.vsanSpec | Select-Object -ExpandProperty licenseFile)
+                
+                #$clusterPayload.computeSpec.clusterSpecs.datastoreSpec.vsanDatastoreSpec.licenseKey = ($global:bringUpOptions.vsanSpec | Select-Object -ExpandProperty licenseFile)
                 logger "Insert Hosts"
                 $hstCnt = 0
                 $clusterPayload.computeSpec.clusterSpecs.hostSpecs | ForEach-Object {$_.id = $sddcFreeHosts[$hstCnt];$hstCnt++}
@@ -4799,8 +4979,8 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                 } else {
                     sddcTaskPoll -sddcMgrIP $sddcMgrIP -apiTokens $apiTokens -taskId ($clusterCreateTask.id)
                 }
-                logger "Checking vCLS VM's to ensure they power up"
-                vclsFix -vcServer $managementVCIP -vcUser $ssoCredential -vcPass $ssoAdminPassword -hostUser "root" -hostPass $($userOptions.masterPassword)
+                #logger "Checking vCLS VM's to ensure they power up"
+                #vclsFix -vcServer $managementVCIP -vcUser $ssoCredential -vcPass $ssoAdminPassword -hostUser "root" -hostPass $($userOptions.masterPassword)
             } elseif ($($global:userOptions.buildOps -match "WLD Domain") -or $($global:userOptions.buildOps -match "ISOWLD Domain")) {
                 #Build WLD
                 logger "Loading DOMAIN json file"
@@ -4831,7 +5011,7 @@ if ($global:Ways -notmatch "expansion" -and [bool]$userOptions.bringupAfterBuild
                 #Host
                 $wldDomainPayload.computeSpec.clusterSpecs.hostSpecs | ForEach-Object {$_.licenseKey = $global:bringUpOptions.esxLicense}
                 #vSAN
-                $wldDomainPayload.computeSpec.clusterSpecs.datastoreSpec.vsanDatastoreSpec.licenseKey = ($global:bringUpOptions.vsanSpec | Select-Object -ExpandProperty licenseFile)
+                #$wldDomainPayload.computeSpec.clusterSpecs.datastoreSpec.vsanDatastoreSpec.licenseKey = ($global:bringUpOptions.vsanSpec | Select-Object -ExpandProperty licenseFile)
                 #NSX
                 $wldDomainPayload.nsxTSpec.licenseKey = ($global:bringUpOptions.nsxtSpec | Select-Object -ExpandProperty nsxtlicense)
                 logger "Insert Hosts"

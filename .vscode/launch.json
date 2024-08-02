@@ -7,7 +7,7 @@
             "request": "launch",
             "script": "${workspaceFolder}\\VLCGui.ps1",
             "cwd": "${workspaceFolder}",
-            "args": ["-iniConfigFile \"VLC511-Config-File-Example.ini\" -isCLI:$true -debugMode:$false"]
+            "args": ["-iniConfigFile \"VLC52-Config-File-Example.ini\" -isCLI:$true -debugMode:$false"]
         }
     ]
 }
