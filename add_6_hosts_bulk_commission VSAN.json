@@ -3,42 +3,42 @@
         {
             "hostfqdn": "esxi-10.vcf.sddc.lab",
             "username": "root",
-            "password": "VMware123!",
+            "password": "VMware123!VMware123!",
             "storageType": "VSAN",
             "networkPoolName": "mgmt-networkpool"
         },        
 		{
             "hostfqdn": "esxi-11.vcf.sddc.lab",
             "username": "root",
-            "password": "VMware123!",
+            "password": "VMware123!VMware123!",
             "storageType": "VSAN",
             "networkPoolName": "mgmt-networkpool"
         },       
 		{
             "hostfqdn": "esxi-12.vcf.sddc.lab",
             "username": "root",
-            "password": "VMware123!",
+            "password": "VMware123!VMware123!",
             "storageType": "VSAN",
             "networkPoolName": "mgmt-networkpool"
         },
         {
             "hostfqdn": "esxi-13.vcf.sddc.lab",
             "username": "root",
-            "password": "VMware123!",
+            "password": "VMware123!VMware123!",
             "storageType": "VSAN",
             "networkPoolName": "mgmt-networkpool"
         },        
 		{
             "hostfqdn": "esxi-14.vcf.sddc.lab",
             "username": "root",
-            "password": "VMware123!",
+            "password": "VMware123!VMware123!",
             "storageType": "VSAN",
             "networkPoolName": "mgmt-networkpool"
         },       
 		{
             "hostfqdn": "esxi-15.vcf.sddc.lab",
             "username": "root",
-            "password": "VMware123!",
+            "password": "VMware123!VMware123!",
             "storageType": "VSAN",
             "networkPoolName": "mgmt-networkpool"
         }
