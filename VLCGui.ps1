@@ -2770,11 +2770,11 @@ if ($isCLI) {
     $global:userOptions += @{"internalSvcs" = "True"}
     $global:userOptions += @{"guestOS" = "vmkernel7guest"}
     $global:userOptions += @{"Typeguestdisk"="Thin"}
+    $global:Ways = "internalsvcs"
+    foreach($ic in $iniContent) {if($ic -notmatch '^[;#]'){$global:userOptions +=@{$ic.Split("=",2)[0]=$ic.Split("=",2)[1]}}}
     if(!$global:userOptions.cbName){
         $global:userOptions += @{"cbName"="CB-01a"}
     }
-    $global:Ways = "internalsvcs"
-    foreach($ic in $iniContent) {if($ic -notmatch '^[;#]'){$global:userOptions +=@{$ic.Split("=",2)[0]=$ic.Split("=",2)[1]}}}
     $global:bringUpOptions = Get-Content -Raw $($global:userOptions.VCFEMSFile)  | ConvertFrom-Json
     $global:userOptions.mgmtNetCidr=$($global:userOptions.mgmtNetSubnet).Substring(($($global:userOptions.mgmtNetSubnet).IndexOf("/")+1),($($global:userOptions.mgmtNetSubnet).Length - ($($global:userOptions.mgmtNetSubnet).IndexOf("/") +1)))
     $global:userOptions.chkInternal = [System.Convert]::ToBoolean($global:userOptions.chkInternal)
