@@ -1,5 +1,5 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v5.2.l 8/1/2024
+# VLC - Lab Constructor beta v5.2.l 9/19/2024
 # Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
 # QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com;
 # wlam@vmware.com for some awesome scripting work on ESA HCL!
@@ -2608,7 +2608,7 @@ function Get-CustomVsanEsaHcl {
         }
     }
     
-    $supportedESXiReleases = @("ESXi 8.0 U2")
+    $supportedESXiReleases = @("ESXi 8.0 U3")
 
     logger "Saving Custom vSAN ESA HCL to custom_vsan_esa_hcl.json"
     $hclJson = $hclObject | ConvertTo-Json -Depth 12 #| Out-File -FilePath "$($global:scriptDir)\conf\custom_vsan_esa_hcl.json"
