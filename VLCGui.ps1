@@ -1,7 +1,7 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v5.2.l 9/19/2024
-# Created by: bsier@vmware.com;hjohnson@vmware.com;ktebear@vmware.com
-# QA: stephenst@vmware.com;acarnie@vmware.com;jsenicka@vmware.com;gojose@vmware.com;
+# VLC - Lab Constructor beta v5.2.l 10/16/2024
+# Created by: bsier@vmware.com;ktebear@vmware.com
+# QA: stephenst@vmware.com;acarnie@vmware.com
 # wlam@vmware.com for some awesome scripting work on ESA HCL!
 # PLEASE See the included install guide PDF file for more info.
 ###################################################################
@@ -28,7 +28,7 @@ $logPathDir = New-Item -ItemType Directory -Path "$scriptDir\Logs" -Force
 $logfile = "$logPathDir\VLC-Log-$(get-date -format $global:dateFormat).txt"
 $tempDir = "Temp-$(Get-Date -Format $global:dateFormat)"
 if($IsWindows){
-	$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v5.2 - Process Window'
+	$host.ui.RawUI.WindowTitle = 'VCF Lab Constructor beta v5.2.1 - Process Window'
 }
 $welcomeText =@"
 Welcome to:
@@ -1208,6 +1208,7 @@ Function cbConfigurator
     $replaceNet +="echo server 127.127.1.0`n"
     $replaceNet +="echo fudge 127.127.1.0 stratum 10`n"
     $replaceNet +=")>/etc/ntp.conf`n"
+    $replaceNet +="sed -i 's/ntpd -g/ntpd -4 -g/g' /usr/lib/systemd/system/ntpd.service`n"
 #NFS and other service config
     $replaceNet +="mkdir /nfsexport`n"
     $replaceNet +="chmod 777 /nfsexport`n"
@@ -1444,7 +1445,7 @@ Function cbConfigurator
     $replaceDNS +="/sbin/chkconfig vaos off`n"
     $replaceDNS +="rm /opt/vmware/etc/init.d/vamitty.conf`n"
     #$replaceDNS +="rm -rf /usr/lib/systemd/system/getty@tty1.service.d`n"
-    $replaceDNS +="echo -e 'Cloudbuilder customized by \e[37;44mVLC 5.2\e[0m | \e[30;102mMgmt IP: $CloudBuilderIP\e[0m' >> /etc/issue`n"
+    $replaceDNS +="echo -e 'Cloudbuilder customized by \e[37;44mVLC 5.2.1\e[0m | \e[30;102mMgmt IP: $CloudBuilderIP\e[0m' >> /etc/issue`n"
     $replaceDNS +="shutdown -r`n"
     $replaceDNS +="END`n"
 
@@ -2879,7 +2880,7 @@ if ($isCLI) {
 "@
 #region formControls
             $frmVCFLCMain = New-Object system.Windows.Forms.Form
-            $frmVCFLCMain.Text = "VCF Lab Constructor beta 5.2"
+            $frmVCFLCMain.Text = "VCF Lab Constructor beta 5.2.1"
             $frmVCFLCMain.TopMost = $true
             $frmVCFLCMain.Width = 850
             $frmVCFLCMain.Height = 450
@@ -3960,7 +3961,7 @@ if ($userOptions.nestedVMPrefix.Length -gt 0) {
     $userOptions.nestedVMPrefix = $userOptions.nestedVMPrefix + "-"
 } 
 
-logger "----------------------Inputs------------------5.2--"
+logger "----------------------Inputs------------------5.2.1--"
 foreach ($uO in $global:userOptions.GetEnumerator() | Sort-Object Name){logger $($uO.Key + "`t`t" + $uO.Value)}
 logger "--------------------END-Inputs-----------------------" 
 
