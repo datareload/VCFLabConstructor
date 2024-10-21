@@ -1,8 +1,8 @@
 ﻿###################################################################
-# VLC - Lab Constructor beta v5.2.l 10/16/2024
-# Created by: bsier@vmware.com;ktebear@vmware.com
-# QA: stephenst@vmware.com;acarnie@vmware.com
-# wlam@vmware.com for some awesome scripting work on ESA HCL!
+# VLC - Lab Constructor beta v5.2.l 10/21/2024
+# Created by: bsier@broadcom.com;ktebear@broadcom.com
+# QA: stephenst@broadcom.com;acarnie@broadcom.com
+# wlam@broadcom.com for some awesome scripting work on ESA HCL!
 # PLEASE See the included install guide PDF file for more info.
 ###################################################################
 param (
